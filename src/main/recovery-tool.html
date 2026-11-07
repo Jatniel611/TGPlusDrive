@@ -1,0 +1,423 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Recuperar archivo · TGPlusDrive</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0f1115;
+    --panel: #1b1e24;
+    --panel2: #20242b;
+    --text: #e6e9ef;
+    --muted: #9aa3af;
+    --accent: #1a73e8;
+    --accent2: #4f8ff7;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --err: #ef4444;
+    --line: rgba(255, 255, 255, 0.1);
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 50% -10%, #1c2a44 0%, #0f1115 60%);
+    color: var(--text);
+    font-family: 'Segoe UI', Roboto, system-ui, -apple-system, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 40px 20px;
+  }
+  .wrap { width: 100%; max-width: 780px; }
+  header { display: flex; align-items: center; gap: 14px; margin-bottom: 26px; }
+  .logo {
+    width: 48px; height: 48px; border-radius: 14px; flex: 0 0 auto;
+    background: linear-gradient(135deg, #38bdf8, #2563eb);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 700; font-size: 20px; color: #fff;
+    box-shadow: 0 8px 24px rgba(37, 99, 235, 0.35);
+  }
+  h1 { font-size: 21px; margin: 0; letter-spacing: -0.2px; }
+  header p { margin: 3px 0 0; font-size: 13px; color: var(--muted); }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: 20px; padding: 22px; margin-bottom: 16px;
+  }
+  .drop {
+    border: 2px dashed rgba(255, 255, 255, 0.18);
+    border-radius: 16px; padding: 34px 20px; text-align: center;
+    transition: all 0.15s ease; cursor: pointer; background: rgba(255,255,255,0.02);
+  }
+  .drop:hover { border-color: var(--accent2); background: rgba(79,143,247,0.07); }
+  .drop.over { border-color: var(--accent2); background: rgba(79,143,247,0.14); transform: scale(1.005); }
+  .drop .big { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+  .drop .small { font-size: 12.5px; color: var(--muted); }
+  .drop svg { width: 40px; height: 40px; margin-bottom: 10px; opacity: 0.75; }
+  input[type=file] { display: none; }
+
+  .status { margin-top: 16px; font-size: 13.5px; line-height: 1.5; }
+  .status .row { display: flex; gap: 8px; align-items: flex-start; padding: 6px 0; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; margin-top: 6px; flex: 0 0 auto; }
+  .dot.ok { background: var(--ok); }
+  .dot.warn { background: var(--warn); }
+  .dot.err { background: var(--err); }
+  .dot.info { background: var(--accent2); }
+  .ok-text { color: #86efac; }
+  .warn-text { color: #fcd34d; }
+  .err-text { color: #fca5a5; }
+
+  .summary {
+    margin-top: 18px; padding: 14px 16px; border-radius: 14px;
+    background: var(--panel2); border: 1px solid var(--line);
+  }
+  .summary .name { font-weight: 600; font-size: 14.5px; word-break: break-all; }
+  .summary .meta { font-size: 12.5px; color: var(--muted); margin-top: 4px; }
+
+  .parts { list-style: none; margin: 12px 0 0; padding: 0; max-height: 190px; overflow-y: auto; }
+  .parts li {
+    display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+    border-radius: 9px; font-size: 12px; color: var(--muted);
+  }
+  .parts li:nth-child(odd) { background: rgba(255,255,255,0.03); }
+  .parts .idx {
+    width: 22px; height: 22px; border-radius: 6px; flex: 0 0 auto;
+    background: rgba(79,143,247,0.15); color: var(--accent2);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 10.5px; font-weight: 700;
+  }
+  .parts .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #cbd5e1; }
+  .parts .psize { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+  .parts .rm {
+    flex: 0 0 auto; background: transparent; border: 0; color: #f87171;
+    cursor: pointer; font-size: 15px; line-height: 1; padding: 2px 5px; border-radius: 6px;
+  }
+  .parts .rm:hover { background: rgba(239,68,68,0.15); }
+
+  .bar { height: 8px; border-radius: 999px; background: rgba(255,255,255,0.1); overflow: hidden; margin-top: 14px; }
+  .bar > i { display: block; height: 100%; width: 0%; background: linear-gradient(90deg, var(--accent), var(--accent2)); transition: width 0.15s linear; }
+
+  .actions { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+  button {
+    border: 0; border-radius: 12px; padding: 11px 18px; font-size: 13.5px;
+    font-weight: 600; cursor: pointer; transition: all 0.15s ease; font-family: inherit;
+  }
+  button.primary { background: var(--accent); color: #fff; }
+  button.primary:hover:not(:disabled) { background: #2b7ff0; box-shadow: 0 6px 18px rgba(26,115,232,0.35); }
+  button.ghost { background: rgba(255,255,255,0.06); color: var(--text); border: 1px solid var(--line); }
+  button.ghost:hover { background: rgba(255,255,255,0.12); }
+  button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+  .help { margin-top: 20px; font-size: 13px; color: var(--muted); line-height: 1.65; }
+  .help b { color: var(--text); }
+  code {
+    display: block; white-space: pre-wrap; word-break: break-all;
+    background: #0b0d11; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; margin: 8px 0; font-family: Consolas, monospace;
+    font-size: 12.5px; color: #cbd5e1;
+  }
+  details { margin-top: 14px; }
+  summary { cursor: pointer; font-size: 13px; color: var(--accent2); outline: none; }
+  .foot { text-align: center; font-size: 11.5px; color: #6b7280; margin-top: 22px; }
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="logo">TG</div>
+    <div>
+      <h1>Recuperar archivo de TGPlusDrive</h1>
+      <p>Une las partes descargadas de Telegram en el archivo original.</p>
+    </div>
+  </header>
+
+  <div class="card">
+    <div class="drop" id="drop">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+        <polyline points="7 10 12 5 17 10"/>
+        <line x1="12" y1="5" x2="12" y2="16"/>
+      </svg>
+      <div class="big">Arrastra aquí todas las partes</div>
+      <div class="small">o haz clic para elegirlas · no se sube nada a internet</div>
+    </div>
+    <input type="file" id="picker" multiple />
+
+    <div class="status" id="status"></div>
+
+    <div class="summary hidden" id="summary">
+      <div class="name" id="outName"></div>
+      <div class="meta" id="outMeta"></div>
+      <ul class="parts" id="partList"></ul>
+      <div class="bar"><i id="bar"></i></div>
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="join" disabled>Unir y guardar</button>
+      <button class="ghost" id="clear" disabled>Limpiar</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="help">
+      <b>¿Cómo funciona?</b> Cada parte se llama <code>Nombre.ext.part-000000000000</code>.
+      El número final es la posición en bytes, así que el orden alfabético ya es el orden correcto.
+      Esta página une los archivos tal cual, sin recomprimir nada, y el resultado es idéntico al original.
+      <details>
+        <summary>Alternativa con comandos (sin esta página)</summary>
+        <b>Windows</b> (en la carpeta de las partes):
+        <code>copy /b Nombre.ext.part-* Nombre.ext</code>
+        <b>Linux / macOS</b>:
+        <code>cat Nombre.ext.part-* &gt; Nombre.ext</code>
+      </details>
+    </div>
+  </div>
+
+  <div class="foot">TGPlusDrive · tus archivos viven en tu cuenta de Telegram</div>
+</div>
+
+<script>
+(function () {
+  var PART_RE = /\.part-(\d{1,14})(?:\.[a-zA-Z0-9]+)?$/i;
+  var state = { entries: [], name: '', total: 0, valid: false, busy: false };
+
+  var drop = document.getElementById('drop');
+  var picker = document.getElementById('picker');
+  var statusEl = document.getElementById('status');
+  var summary = document.getElementById('summary');
+  var outName = document.getElementById('outName');
+  var outMeta = document.getElementById('outMeta');
+  var bar = document.getElementById('bar');
+  var partList = document.getElementById('partList');
+  var joinBtn = document.getElementById('join');
+  var clearBtn = document.getElementById('clear');
+
+  function fmt(bytes) {
+    if (!bytes) return '0 B';
+    var units = ['B', 'KB', 'MB', 'GB', 'TB'];
+    var i = Math.floor(Math.log(bytes) / Math.log(1024));
+    i = Math.min(i, units.length - 1);
+    var value = bytes / Math.pow(1024, i);
+    return (i === 0 ? value : value.toFixed(2)) + ' ' + units[i];
+  }
+
+  function esc(text) {
+    return String(text).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  function setStatus(lines) {
+    statusEl.innerHTML = lines
+      .map(function (l) {
+        return '<div class="row"><span class="dot ' + l.kind + '"></span><span class="' +
+          (l.kind === 'ok' ? 'ok-text' : l.kind === 'warn' ? 'warn-text' : l.kind === 'err' ? 'err-text' : '') +
+          '">' + l.text + '</span></div>';
+      })
+      .join('');
+  }
+
+  function analyze() {
+    var entries = state.entries;
+    if (!entries.length) {
+      state.valid = false;
+      summary.classList.add('hidden');
+      joinBtn.disabled = true;
+      clearBtn.disabled = true;
+      setStatus([]);
+      return;
+    }
+
+    var byName = {};
+    var dupes = [];
+    entries.forEach(function (e) {
+      if (byName[e.name]) dupes.push(e.name);
+      else byName[e.name] = e;
+    });
+
+    var bases = {};
+    entries.forEach(function (e) { bases[e.base] = true; });
+    var baseList = Object.keys(bases);
+
+    var lines = [];
+    var sorted = entries.slice().sort(function (a, b) { return a.offset - b.offset; });
+
+    if (baseList.length > 1) {
+      lines.push({ kind: 'warn', text: 'Hay partes de varios archivos distintos (' + baseList.length + '). Une solo las de un mismo archivo.' });
+    }
+    if (dupes.length) {
+      lines.push({ kind: 'warn', text: 'Partes repetidas: ' + esc(dupes.slice(0, 4).join(', ')) });
+    }
+
+    var expected = 0;
+    var gaps = [];
+    var overlaps = [];
+    for (var i = 0; i < sorted.length; i++) {
+      var e = sorted[i];
+      if (e.offset > expected) gaps.push(expected);
+      else if (e.offset < expected) overlaps.push(e.offset);
+      if (e.offset + e.size > expected) expected = e.offset + e.size;
+    }
+
+    if (sorted[0] && sorted[0].offset !== 0) {
+      lines.push({ kind: 'err', text: 'Falta la primera parte (posición 0).' });
+    }
+    if (gaps.length) {
+      lines.push({ kind: 'err', text: 'Faltan datos desde la posición ' + gaps[0] + ' (' + fmt(gaps[0]) + '). Descarga las partes que faltan.' });
+    }
+    if (overlaps.length) {
+      lines.push({ kind: 'warn', text: 'Hay partes solapadas; se usará la de menor posición.' });
+    }
+
+    var name = baseList.length === 1 ? baseList[0] : 'archivo-reconstruido';
+    var contiguous = sorted.length > 0 && sorted[0].offset === 0 && gaps.length === 0;
+    state.valid = contiguous && baseList.length === 1;
+    state.name = name;
+    state.total = expected;
+
+    lines.unshift({
+      kind: state.valid ? 'ok' : 'info',
+      text: sorted.length + ' parte(s) · ' + fmt(expected) + (state.valid ? ' · listo para unir' : '')
+    });
+
+    setStatus(lines);
+    summary.classList.remove('hidden');
+    outName.textContent = name;
+    outMeta.textContent = sorted.length + ' partes · ' + fmt(expected) + ' en total';
+
+    partList.innerHTML = sorted
+      .map(function (e, i) {
+        return '<li>' +
+          '<span class="idx">' + (i + 1) + '</span>' +
+          '<span class="pname" title="' + esc(e.name) + '">' + esc(e.name) + '</span>' +
+          '<span class="psize">' + fmt(e.size) + '</span>' +
+          '<button class="rm" data-name="' + esc(e.name) + '" title="Quitar esta parte">×</button>' +
+          '</li>';
+      })
+      .join('');
+
+    joinBtn.disabled = !state.valid || state.busy;
+    clearBtn.disabled = state.busy;
+  }
+
+  partList.addEventListener('click', function (event) {
+    var btn = event.target.closest ? event.target.closest('.rm') : null;
+    if (!btn || state.busy) return;
+    var name = btn.getAttribute('data-name');
+    state.entries = state.entries.filter(function (e) { return e.name !== name; });
+    analyze();
+  });
+
+  function addFiles(fileList) {
+    var added = 0;
+    var skipped = 0;
+    for (var i = 0; i < fileList.length; i++) {
+      var file = fileList[i];
+      var match = PART_RE.exec(file.name);
+      if (!match) { skipped++; continue; }
+      var offset = parseInt(match[1], 10);
+      if (!isFinite(offset)) { skipped++; continue; }
+      var base = file.name.slice(0, match.index);
+      var existing = state.entries.some(function (e) { return e.name === file.name; });
+      if (existing) { skipped++; continue; }
+      state.entries.push({ file: file, offset: offset, size: file.size, name: file.name, base: base });
+      added++;
+    }
+    analyze();
+    if (skipped && !added) {
+      setStatus([{ kind: 'err', text: 'No se reconoció ninguna parte. Los nombres deben contener ".part-<número>".' }]);
+    }
+  }
+
+  drop.addEventListener('click', function () { if (!state.busy) picker.click(); });
+  picker.addEventListener('change', function () {
+    if (picker.files) addFiles(picker.files);
+    picker.value = '';
+  });
+
+  ['dragenter', 'dragover'].forEach(function (evt) {
+    drop.addEventListener(evt, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      if (!state.busy) drop.classList.add('over');
+    });
+  });
+  ['dragleave', 'drop'].forEach(function (evt) {
+    drop.addEventListener(evt, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      drop.classList.remove('over');
+    });
+  });
+  drop.addEventListener('drop', function (e) {
+    if (state.busy) return;
+    if (e.dataTransfer && e.dataTransfer.files) addFiles(e.dataTransfer.files);
+  });
+  window.addEventListener('dragover', function (e) { e.preventDefault(); });
+  window.addEventListener('drop', function (e) { e.preventDefault(); });
+
+  clearBtn.addEventListener('click', function () {
+    if (state.busy) return;
+    state.entries = [];
+    bar.style.width = '0%';
+    analyze();
+  });
+
+  function ordered() {
+    return state.entries.slice().sort(function (a, b) { return a.offset - b.offset; });
+  }
+
+  async function saveStreaming(files, name) {
+    var handle = await window.showSaveFilePicker({ suggestedName: name });
+    var writable = await handle.createWritable();
+    var done = 0;
+    for (var i = 0; i < files.length; i++) {
+      await writable.write(files[i].file);
+      done += files[i].size;
+      bar.style.width = Math.min(100, (done / state.total) * 100) + '%';
+    }
+    await writable.close();
+  }
+
+  async function saveBlob(files, name) {
+    var blob = new Blob(files.map(function (f) { return f.file; }));
+    var url = URL.createObjectURL(blob);
+    var link = document.createElement('a');
+    link.href = url;
+    link.download = name;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    bar.style.width = '100%';
+    setTimeout(function () { URL.revokeObjectURL(url); }, 60000);
+  }
+
+  joinBtn.addEventListener('click', async function () {
+    if (!state.valid || state.busy) return;
+    var files = ordered();
+    state.busy = true;
+    joinBtn.disabled = true;
+    clearBtn.disabled = true;
+    bar.style.width = '0%';
+    setStatus([{ kind: 'info', text: 'Uniendo ' + files.length + ' partes…' }]);
+    try {
+      if (window.showSaveFilePicker) await saveStreaming(files, state.name);
+      else await saveBlob(files, state.name);
+      setStatus([
+        { kind: 'ok', text: 'Archivo reconstruido: ' + esc(state.name) + ' (' + fmt(state.total) + ')' }
+      ]);
+    } catch (err) {
+      if (err && (err.name === 'AbortError' || err.name === 'NotAllowedError')) {
+        setStatus([{ kind: 'warn', text: 'Guardado cancelado.' }]);
+      } else {
+        setStatus([{ kind: 'err', text: 'No se pudo guardar: ' + esc(err && err.message ? err.message : err) }]);
+      }
+    } finally {
+      state.busy = false;
+      analyze();
+    }
+  });
+})();
+</script>
+</body>
+</html>

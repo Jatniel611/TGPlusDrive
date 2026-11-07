@@ -1,0 +1,115 @@
+{
+    "name": "tgplusdrive",
+    "version": "0.1.2",
+    "description": "Gestor de archivos estilo Google Drive sobre Mensajes guardados de Telegram",
+    "main": "./out/main/index.js",
+    "author": "Jatniel",
+    "license": "GPL-3.0-or-later",
+    "private": false,
+    "scripts": {
+        "dev": "electron-vite dev",
+        "start": "electron-vite preview",
+        "build": "electron-vite build",
+        "typecheck": "tsc --noEmit -p tsconfig.node.json && tsc --noEmit -p tsconfig.web.json",
+        "postinstall": "node scripts/ensure-electron.cjs",
+        "dist": "npm run build && node scripts/obfuscate.cjs && node scripts/brand-mpv.cjs && electron-builder build",
+        "brand:mpv": "node scripts/brand-mpv.cjs",
+        "obfuscate": "node scripts/obfuscate.cjs",
+        "fetch:mpv": "node scripts/fetch-mpv.cjs",
+        "predist": "node scripts/fetch-mpv.cjs"
+    },
+    "dependencies": {
+        "qrcode": "^1.5.4",
+        "telegram": "^2.26.22"
+    },
+    "devDependencies": {
+        "@types/node": "^22.10.7",
+        "@types/qrcode": "^1.5.6",
+        "@types/react": "^18.3.18",
+        "@types/react-dom": "^18.3.5",
+        "@vitejs/plugin-react": "^4.3.4",
+        "autoprefixer": "^10.4.20",
+        "electron": "^34.0.0",
+        "electron-builder": "^26.18.0",
+        "electron-vite": "^3.1.0",
+        "javascript-obfuscator": "^5.10.0",
+        "lucide-react": "^0.474.0",
+        "postcss": "^8.5.1",
+        "react": "^18.3.1",
+        "react-dom": "^18.3.1",
+        "tailwindcss": "^3.4.17",
+        "typescript": "^5.7.3",
+        "vite": "^6.1.0"
+    },
+    "build": {
+        "appId": "com.tgplusdrive.app",
+        "productName": "TGPlusDrive",
+        "directories": {
+            "output": "release"
+        },
+        "files": [
+            "out/**/*",
+            "package.json"
+        ],
+        "win": {
+            "target": [
+                "portable",
+                "nsis"
+            ],
+            "icon": "build/icon.ico",
+            "signtoolOptions": {
+                "rfc3161TimeStampServer": "http://timestamp.digicert.com",
+                "signingHashAlgorithms": [
+                    "sha256"
+                ]
+            }
+        },
+        "npmRebuild": false,
+        "buildDependenciesFromSource": false,
+        "extraResources": [
+            {
+                "from": "vendor/mpv",
+                "to": "mpv",
+                "filter": [
+                    "mpv.exe",
+                    "mpv.ico"
+                ]
+            },
+            {
+                "from": "build/icon.ico",
+                "to": "icon.ico"
+            },
+            {
+                "from": "THIRD-PARTY-NOTICES.md",
+                "to": "THIRD-PARTY-NOTICES.md"
+            },
+            {
+                "from": "LICENSE",
+                "to": "LICENSE.txt"
+            }
+        ],
+        "nsis": {
+            "oneClick": false,
+            "perMachine": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "TGPlusDrive",
+            "runAfterFinish": true,
+            "deleteAppDataOnUninstall": false,
+            "license": "build/license.txt"
+        }
+    },
+    "repository": {
+        "type": "git",
+        "url": "https://github.com/Jatniel611/TGPlusDrive.git"
+    },
+    "bugs": {
+        "url": "https://github.com/Jatniel611/TGPlusDrive/issues"
+    },
+    "homepage": "https://github.com/Jatniel611/TGPlusDrive#readme",
+    "funding": {
+        "type": "individual",
+        "url": "https://www.paypal.com/donate/?hosted_button_id=JRW79EKXDN5MW"
+    }
+}

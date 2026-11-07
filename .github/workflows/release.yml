@@ -1,0 +1,117 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag de la versión (ej. v0.1.0)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    env:
+      # Los secretos no pueden usarse en `if:`; se exponen como env en el job.
+      CSC_LINK_BASE64: ${{ secrets.CSC_LINK_BASE64 }}
+      CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
+      SIGNPATH_API_TOKEN: ${{ secrets.SIGNPATH_API_TOKEN }}
+      SIGNPATH_ORGANIZATION_ID: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      # Firma local opcional con certificado propio (.pfx).
+      # Si usas SignPath, deja estos secretos vacíos.
+      - name: Prepare signing (optional, own certificate)
+        if: env.CSC_LINK_BASE64 != ''
+        shell: pwsh
+        run: |
+          $path = Join-Path $env:RUNNER_TEMP 'cert.pfx'
+          [IO.File]::WriteAllBytes($path, [Convert]::FromBase64String($env:CSC_LINK_BASE64))
+          "CSC_LINK=$path" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+
+      - name: Package
+        # --publish never: electron-builder detecta el tag e intenta publicar
+        # por su cuenta; el release lo crea el paso de abajo.
+        run: npm run dist -- --publish never
+
+      # --- Firma gratuita con SignPath (solo si hay token configurado) ---
+      # Si no está configurado, se publica sin firmar (con aviso de SmartScreen).
+      - name: Upload unsigned artifacts for signing
+        id: upload-unsigned
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: unsigned-installers
+          path: |
+            release/TGPlusDrive Setup *.exe
+            release/TGPlusDrive *.exe
+          if-no-files-found: error
+
+      - name: Sign with SignPath
+        id: signpath
+        if: env.SIGNPATH_API_TOKEN != ''
+        uses: signpath/github-action-submit-signing-request@v3
+        with:
+          api-token: ${{ secrets.SIGNPATH_API_TOKEN }}
+          organization-id: ${{ secrets.SIGNPATH_ORGANIZATION_ID }}
+          project-slug: tgplusdrive
+          signing-policy-slug: release-signing
+          artifact-configuration-slug: windows-installers
+          github-artifact-id: ${{ steps.upload-unsigned.outputs.artifact-id }}
+          wait-for-completion: true
+          output-artifact-directory: signed
+
+      - name: Replace with signed installers
+        if: env.SIGNPATH_API_TOKEN != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem signed -Recurse -Filter *.exe | ForEach-Object {
+            Copy-Item $_.FullName -Destination "release/$($_.Name)" -Force
+            Write-Host "firmado: $($_.Name)"
+          }
+
+      - name: Verify signature
+        if: env.SIGNPATH_API_TOKEN != ''
+        shell: pwsh
+        run: |
+          Get-ChildItem release -Filter *.exe | ForEach-Object {
+            $sig = Get-AuthenticodeSignature $_.FullName
+            Write-Host "$($_.Name): $($sig.Status) - $($sig.SignerCertificate.Subject)"
+          }
+
+      - name: Hashes
+        shell: pwsh
+        run: |
+          Remove-Item release/SHA256SUMS.txt -ErrorAction SilentlyContinue
+          Get-ChildItem release -Filter *.exe | ForEach-Object {
+            $h = (Get-FileHash $_.FullName -Algorithm SHA256).Hash
+            "$($_.Name)  $h" | Out-File -FilePath release/SHA256SUMS.txt -Append -Encoding utf8
+          }
+          Get-Content release/SHA256SUMS.txt
+
+      - name: Publish release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag || github.ref_name }}
+          files: |
+            release/*.exe
+            release/SHA256SUMS.txt
+          generate_release_notes: true
+          draft: true

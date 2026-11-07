@@ -1,0 +1,88 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Roboto, 'Helvetica Neue', Arial, system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+
+html.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.25);
+  background-clip: content-box;
+}
+
+/* Toque elegante: degradado muy sutil de fondo y tarjetas con más presencia. */
+.gd-app-bg {
+  background-image:
+    radial-gradient(1200px 500px at 15% -10%, rgba(26, 115, 232, 0.06), transparent 60%),
+    radial-gradient(900px 400px at 110% 10%, rgba(56, 189, 248, 0.05), transparent 55%);
+}
+
+html.dark .gd-app-bg {
+  background-image:
+    radial-gradient(1200px 500px at 15% -10%, rgba(26, 115, 232, 0.16), transparent 60%),
+    radial-gradient(900px 400px at 110% 10%, rgba(56, 189, 248, 0.10), transparent 55%);
+}
+
+.gd-card {
+  transition: box-shadow 0.2s ease, transform 0.2s ease, background-color 0.2s ease;
+}
+
+.gd-card:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px -8px rgba(15, 23, 42, 0.25);
+}
+
+html.dark .gd-card:hover {
+  box-shadow: 0 8px 24px -10px rgba(0, 0, 0, 0.7);
+}
+
+.ellipsis {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fade-in 0.18s ease-out;
+}

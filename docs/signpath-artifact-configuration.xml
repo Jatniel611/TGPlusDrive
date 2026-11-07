@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Configuración de artefacto para SignPath (instaladores de TGPlusDrive).
+
+  Pégala en SignPath: Project > Artifact Configurations > New > slug
+  "windows-installers". Firma los .exe que sube GitHub Actions como ZIP
+  (actions/upload-artifact los empaqueta por defecto).
+-->
+<artifact-configuration xmlns="http://signpath.io/artifact-configuration/v1">
+  <zip-file>
+    <pe-file-set>
+      <include path="**/*.exe" />
+      <for-each>
+        <authenticode-sign
+          description="TGPlusDrive"
+          url="https://github.com/Jatniel611/TGPlusDrive" />
+      </for-each>
+    </pe-file-set>
+  </zip-file>
+</artifact-configuration>

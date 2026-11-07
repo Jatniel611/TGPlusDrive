@@ -1,0 +1,25 @@
+TGPlusDrive 0.1.0 (Beta)
+Copyright (C) 2026 Jatniel
+
+Este programa es software libre: puedes redistribuirlo y/o modificarlo bajo
+los terminos de la Licencia Publica General GNU (GPL), version 3 o posterior.
+
+Este programa se distribuye con la esperanza de que sea util, pero SIN NINGUNA
+GARANTIA; ni siquiera la garantia implicita de COMERCIABILIDAD o IDONEIDAD PARA
+UN PROPOSITO PARTICULAR. Consulta la GPL para mas detalles.
+
+Deberias haber recibido una copia de la GPL junto con este programa. Si no,
+consulta <https://www.gnu.org/licenses/>.
+
+El codigo fuente correspondiente esta disponible en el repositorio del
+proyecto. TGPlusDrive incluye el binario mpv (GPLv2+/LGPLv2.1+); consulta
+THIRD-PARTY-NOTICES.md para los avisos y fuentes de terceros.
+
+TGPlusDrive usa la API oficial de Telegram. No esta afiliado a Telegram ni
+garantiza la disponibilidad del servicio. El usuario es el unico responsable
+del contenido que suba y del cumplimiento de los Terminos de Servicio de
+Telegram.
+
+Al continuar, aceptas estos terminos.
+
+GPL-3.0-or-later — https://www.gnu.org/licenses/gpl-3.0.html

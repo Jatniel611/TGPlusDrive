@@ -1,0 +1,30 @@
+# https://docs.github.com/code-security/dependabot/dependabot-alerts/configuration
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    groups:
+      minor-and-patch:
+        patterns:
+          - '*'
+        update-types:
+          - minor
+          - patch
+    ignore:
+      # Los saltos de versión mayor se revisan a mano por compatibilidad.
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+      # Electron y electron-vite se actualizan a mano.
+      - dependency-name: electron
+      - dependency-name: electron-vite
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
