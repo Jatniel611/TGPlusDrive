@@ -2109,13 +2109,20 @@ function registerIpc(): void {
         prerelease?: boolean
         assets?: Array<{ name?: string; browser_download_url?: string }>
       }>
-      const usable = releases.filter((release) => !release.draft)
-      const newest = usable.find((release) => !release.prerelease) ?? usable[0]
-      if (!newest?.tag_name) {
+      const usable = releases.filter((release) => !release.draft && release.tag_name)
+      if (usable.length === 0) {
         info.error = 'No hay versiones publicadas todavía.'
         return info
       }
-      const latest = newest.tag_name.replace(/^v/i, '')
+      // Elegir la versión MÁS ALTA, no la última "estable": en beta todas las
+      // releases son pre-release, y preferir una estable antigua ocultaba las
+      // versiones nuevas a los usuarios.
+      const newest = usable.reduce((best, candidate) =>
+        isNewerVersion(candidate.tag_name!.replace(/^v/i, ''), best.tag_name!.replace(/^v/i, ''))
+          ? candidate
+          : best
+      )
+      const latest = newest.tag_name!.replace(/^v/i, '')
       info.latest = latest
       info.releaseUrl = newest.html_url ?? RELEASES_URL
       info.publishedAt = newest.published_at
