@@ -43,6 +43,7 @@ import {
   Search,
   Star,
   Sun,
+  Power,
   ArrowUp,
   CloudUpload,
   PackageOpen,
@@ -195,6 +196,8 @@ export function Drive({
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateBusy, setUpdateBusy] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [autoStart, setAutoStart] = useState<{ supported: boolean; enabled: boolean } | null>(null)
+  const [autoStartBusy, setAutoStartBusy] = useState(false)
   const toastTimer = useRef<number | null>(null)
   const dragDepth = useRef(0)
   const autoScrollTimer = useRef<number | null>(null)
@@ -659,6 +662,35 @@ export function Drive({
       )
     } catch (err) {
       showToast(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  useEffect(() => {
+    if (!settingsOpen) return
+    let alive = true
+    void window.api.app
+      .autoStart()
+      .then((state) => {
+        if (alive) setAutoStart(state)
+      })
+      .catch(() => undefined)
+    return () => {
+      alive = false
+    }
+  }, [settingsOpen])
+
+  const toggleAutoStart = async (): Promise<void> => {
+    if (autoStartBusy) return
+    setAutoStartBusy(true)
+    try {
+      const next = await window.api.app.setAutoStart(!(autoStart?.enabled ?? false))
+      setAutoStart({ supported: next.supported, enabled: next.enabled })
+      if (next.error) showToast(next.error)
+      else showToast(next.enabled ? 'Se abrirá al iniciar Windows' : 'Ya no se abrirá al iniciar')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setAutoStartBusy(false)
     }
   }
 
@@ -1973,6 +2005,9 @@ export function Drive({
           clearingCache={clearingCache}
           backupInfo={backupInfo}
           profileName={profile.name}
+          autoStart={autoStart}
+          autoStartBusy={autoStartBusy}
+          onToggleAutoStart={() => void toggleAutoStart()}
           onClose={() => setSettingsOpen(false)}
           onToggleTheme={() =>
             void window.api.drive.setTheme(theme === 'dark' ? 'light' : 'dark')
@@ -2959,6 +2994,9 @@ function SettingsModal({
   clearingCache,
   backupInfo,
   profileName,
+  autoStart,
+  autoStartBusy,
+  onToggleAutoStart,
   onClose,
   onToggleTheme,
   onClearCache,
@@ -2972,6 +3010,9 @@ function SettingsModal({
   clearingCache: boolean
   backupInfo: BackupInfo | null
   profileName: string
+  autoStart: { supported: boolean; enabled: boolean } | null
+  autoStartBusy: boolean
+  onToggleAutoStart: () => void
   onClose: () => void
   onToggleTheme: () => void
   onClearCache: () => void
@@ -3029,6 +3070,36 @@ function SettingsModal({
               className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/15"
             >
               Cambiar
+            </button>
+          </SettingsRow>
+
+          <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Sistema
+          </p>
+          <SettingsRow
+            icon={<Power className="h-4 w-4" />}
+            title="Iniciar con Windows"
+            description={
+              autoStart?.supported === false
+                ? 'No disponible en esta versión (solo con la app instalada).'
+                : 'Abre TGPlusDrive automáticamente al encender el PC.'
+            }
+          >
+            <button
+              onClick={onToggleAutoStart}
+              disabled={autoStartBusy || autoStart?.supported === false}
+              className={`relative h-6 w-11 rounded-full transition-colors disabled:opacity-50 ${
+                autoStart?.enabled ? 'bg-gd-blue' : 'bg-slate-300 dark:bg-white/20'
+              }`}
+              role="switch"
+              aria-checked={autoStart?.enabled ?? false}
+              aria-label="Iniciar con Windows"
+            >
+              <span
+                className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform ${
+                  autoStart?.enabled ? 'translate-x-[22px]' : 'translate-x-0.5'
+                }`}
+              />
             </button>
           </SettingsRow>
 

@@ -96,6 +96,11 @@ export interface TgApi {
     /** Abre la página del release o la descarga en el navegador. */
     openUrl(url: 'release' | 'download'): Promise<boolean>
     version(): Promise<string>
+    /** Inicio automático con Windows. */
+    autoStart(): Promise<{ supported: boolean; enabled: boolean }>
+    setAutoStart(
+      enabled: boolean
+    ): Promise<{ supported: boolean; enabled: boolean; error?: string }>
   }
   getPathForFile(file: File): string
 }

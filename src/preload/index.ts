@@ -82,7 +82,9 @@ const api: TgApi = {
     openDonation: () => ipcRenderer.invoke('app:openDonation'),
     checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
     openUrl: (url) => ipcRenderer.invoke('app:openUrl', url),
-    version: () => ipcRenderer.invoke('app:version')
+    version: () => ipcRenderer.invoke('app:version'),
+    autoStart: () => ipcRenderer.invoke('app:autoStart'),
+    setAutoStart: (enabled) => ipcRenderer.invoke('app:setAutoStart', enabled)
   },
   getPathForFile: (file) => webUtils.getPathForFile(file)
 }

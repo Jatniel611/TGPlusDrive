@@ -2079,6 +2079,52 @@ function registerIpc(): void {
 
   ipcMain.handle('app:version', () => app.getVersion())
 
+  /**
+   * Ruta del ejecutable que debe registrarse para el inicio automático.
+   * En la versión portable, `process.execPath` apunta a la copia temporal que
+   * se descomprime al abrir; hay que registrar el .exe original.
+   */
+  const loginItemPath = (): string => {
+    const portable = process.env['PORTABLE_EXECUTABLE_FILE']
+    if (portable && existsSync(portable)) return portable
+    return process.execPath
+  }
+
+  ipcMain.handle('app:autoStart', () => {
+    if (process.platform !== 'win32') return { supported: false, enabled: false }
+    if (!app.isPackaged) return { supported: false, enabled: false }
+    try {
+      const settings = app.getLoginItemSettings({ path: loginItemPath() })
+      return { supported: true, enabled: settings.openAtLogin }
+    } catch {
+      return { supported: false, enabled: false }
+    }
+  })
+
+  ipcMain.handle('app:setAutoStart', (_event, enabled: boolean) => {
+    if (process.platform !== 'win32') {
+      return { supported: false, enabled: false, error: 'Solo disponible en Windows' }
+    }
+    if (!app.isPackaged) {
+      return { supported: false, enabled: false, error: 'No disponible en modo desarrollo' }
+    }
+    try {
+      app.setLoginItemSettings({
+        openAtLogin: Boolean(enabled),
+        path: loginItemPath(),
+        args: []
+      })
+      const settings = app.getLoginItemSettings({ path: loginItemPath() })
+      return { supported: true, enabled: settings.openAtLogin }
+    } catch (err) {
+      return {
+        supported: true,
+        enabled: false,
+        error: err instanceof Error ? err.message : String(err)
+      }
+    }
+  })
+
   ipcMain.handle('app:checkForUpdates', async (): Promise<UpdateInfo> => {
     const current = app.getVersion()
     if (updateCache && Date.now() - updateCache.at < UPDATE_CACHE_MS) {
