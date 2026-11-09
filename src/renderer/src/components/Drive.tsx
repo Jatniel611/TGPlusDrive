@@ -194,6 +194,7 @@ export function Drive({
   const [updateOpen, setUpdateOpen] = useState(false)
   const [updateInfo, setUpdateInfo] = useState<UpdateInfo | null>(null)
   const [updateBusy, setUpdateBusy] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const toastTimer = useRef<number | null>(null)
   const dragDepth = useRef(0)
   const autoScrollTimer = useRef<number | null>(null)
@@ -998,29 +999,6 @@ export function Drive({
           <p className="mt-1.5 text-[11px] text-slate-400 dark:text-slate-500">
             Ilimitado · Mensajes guardados
           </p>
-          {cacheInfo && cacheInfo.total > 0 && (
-            <div className="mt-2 rounded-xl bg-slate-100/70 px-2.5 py-2 dark:bg-white/5">
-              <div className="flex items-center gap-1.5">
-                <HardDrive className="h-3 w-3 shrink-0 text-slate-400" />
-                <span className="flex-1 text-[10px] font-medium text-slate-500 dark:text-slate-400">
-                  Caché local (miniaturas)
-                </span>
-                <span className="text-[10px] tabular-nums text-slate-400">
-                  {formatSize(cacheInfo.total)}
-                </span>
-              </div>
-              <p className="mt-0.5 text-[9px] leading-tight text-slate-400 dark:text-slate-500">
-                No borra tus archivos de Telegram
-              </p>
-              <button
-                onClick={() => void clearCache()}
-                disabled={clearingCache}
-                className="mt-1.5 w-full rounded-lg bg-white px-2 py-1 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200 transition-colors hover:bg-slate-50 disabled:opacity-50 dark:bg-white/10 dark:text-slate-200 dark:ring-white/10 dark:hover:bg-white/15"
-              >
-                {clearingCache ? 'Limpiando caché…' : 'Liberar caché'}
-              </button>
-            </div>
-          )}
           {profile.provider === 'telegram' && (
             <button
               onClick={() => setModal({ type: 'confirm-scan' })}
@@ -1192,18 +1170,11 @@ export function Drive({
               </span>
             </button>
             <button
-              onClick={() => void saveRecoveryTool()}
-              title="Guardar herramienta para unir partes sin la app"
-              className="rounded-full p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
+              onClick={() => setSettingsOpen(true)}
+              title="Configuración"
+              className="rounded-full p-2 text-slate-500 transition-colors hover:bg-slate-200 dark:text-slate-400 dark:hover:bg-white/10"
             >
               <Wrench className="h-5 w-5" />
-            </button>
-            <button
-              onClick={() => void window.api.drive.setTheme(theme === 'dark' ? 'light' : 'dark')}
-              title="Cambiar tema"
-              className="rounded-full p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-200 dark:hover:bg-white/10 transition-colors"
-            >
-              {theme === 'dark' ? <Sun className="h-5 w-5" /> : <Moon className="h-5 w-5" />}
             </button>
           </div>
         </header>
@@ -1992,6 +1963,31 @@ export function Drive({
           onRecheck={() => void checkUpdates()}
           onDownload={() => void window.api.app.openUrl('download')}
           onOpenRelease={() => void window.api.app.openUrl('release')}
+        />
+      )}
+
+      {settingsOpen && (
+        <SettingsModal
+          theme={theme}
+          cacheInfo={cacheInfo}
+          clearingCache={clearingCache}
+          backupInfo={backupInfo}
+          profileName={profile.name}
+          onClose={() => setSettingsOpen(false)}
+          onToggleTheme={() =>
+            void window.api.drive.setTheme(theme === 'dark' ? 'light' : 'dark')
+          }
+          onClearCache={() => void clearCache()}
+          onOpenBackup={() => {
+            setSettingsOpen(false)
+            setBackupOpen(true)
+          }}
+          onCheckUpdates={() => {
+            setSettingsOpen(false)
+            void checkUpdates()
+          }}
+          onSaveRecovery={() => void saveRecoveryTool()}
+          onDonate={() => void window.api.app.openDonation()}
         />
       )}
 
@@ -2922,6 +2918,198 @@ function DuplicateUploadModal({
           >
             Continuar
           </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SettingsRow({
+  icon,
+  title,
+  description,
+  children
+}: {
+  icon: React.ReactNode
+  title: string
+  description?: string
+  children?: React.ReactNode
+}): JSX.Element {
+  return (
+    <div className="flex items-start gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-slate-50 dark:hover:bg-white/5">
+      <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300">
+        {icon}
+      </div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-slate-800 dark:text-slate-100">{title}</p>
+        {description && (
+          <p className="mt-0.5 text-[11px] leading-snug text-slate-500 dark:text-slate-400">
+            {description}
+          </p>
+        )}
+      </div>
+      {children && <div className="shrink-0 self-center">{children}</div>}
+    </div>
+  )
+}
+
+function SettingsModal({
+  theme,
+  cacheInfo,
+  clearingCache,
+  backupInfo,
+  profileName,
+  onClose,
+  onToggleTheme,
+  onClearCache,
+  onOpenBackup,
+  onCheckUpdates,
+  onSaveRecovery,
+  onDonate
+}: {
+  theme: 'light' | 'dark'
+  cacheInfo: { total: number } | null
+  clearingCache: boolean
+  backupInfo: BackupInfo | null
+  profileName: string
+  onClose: () => void
+  onToggleTheme: () => void
+  onClearCache: () => void
+  onOpenBackup: () => void
+  onCheckUpdates: () => void
+  onSaveRecovery: () => void
+  onDonate: () => void
+}): JSX.Element {
+  const backupLabel = !backupInfo?.enabled
+    ? 'Desactivado'
+    : backupInfo.paused
+      ? 'En pausa'
+      : backupInfo.uploading
+        ? 'Sincronizando'
+        : 'Activo'
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+      onClick={onClose}
+    >
+      <div
+        onClick={(event) => event.stopPropagation()}
+        className="flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-2xl animate-fade-in dark:bg-[#20242b]"
+      >
+        <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4 dark:border-white/10">
+          <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-100 text-slate-600 dark:bg-white/10 dark:text-slate-300">
+            <Wrench className="h-5 w-5" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <h3 className="text-lg font-medium text-slate-800 dark:text-slate-100">Configuración</h3>
+            <p className="text-[11px] text-slate-500 dark:text-slate-400">
+              Ajustes de la app para {profileName}
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded-full p-1.5 text-slate-400 transition-colors hover:bg-slate-100 dark:hover:bg-white/10"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto p-3">
+          <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Apariencia
+          </p>
+          <SettingsRow
+            icon={theme === 'dark' ? <Moon className="h-4 w-4" /> : <Sun className="h-4 w-4" />}
+            title="Tema"
+            description={theme === 'dark' ? 'Oscuro' : 'Claro'}
+          >
+            <button
+              onClick={onToggleTheme}
+              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/15"
+            >
+              Cambiar
+            </button>
+          </SettingsRow>
+
+          <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Respaldo y almacenamiento
+          </p>
+          <SettingsRow
+            icon={<FolderSync className="h-4 w-4" />}
+            title="Respaldo automático"
+            description={`${backupLabel}${
+              backupInfo?.folderName ? ` · ${backupInfo.folderName}` : ''
+            }`}
+          >
+            <button
+              onClick={onOpenBackup}
+              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/15"
+            >
+              Configurar
+            </button>
+          </SettingsRow>
+          <SettingsRow
+            icon={<HardDrive className="h-4 w-4" />}
+            title="Caché local"
+            description={`${formatSize(cacheInfo?.total ?? 0)} en miniaturas. No borra tus archivos de Telegram.`}
+          >
+            <button
+              onClick={onClearCache}
+              disabled={clearingCache || !cacheInfo || cacheInfo.total === 0}
+              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 disabled:opacity-50 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/15"
+            >
+              {clearingCache ? 'Limpiando…' : 'Liberar'}
+            </button>
+          </SettingsRow>
+
+          <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Herramientas
+          </p>
+          <SettingsRow
+            icon={<Wrench className="h-4 w-4" />}
+            title="Herramienta de recuperación"
+            description="Guarda el HTML para unir archivos divididos sin la app."
+          >
+            <button
+              onClick={onSaveRecovery}
+              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/15"
+            >
+              Guardar
+            </button>
+          </SettingsRow>
+          <SettingsRow
+            icon={<PackageOpen className="h-4 w-4" />}
+            title="Actualizaciones"
+            description="Comprueba si hay una versión nueva en GitHub."
+          >
+            <button
+              onClick={onCheckUpdates}
+              className="rounded-full bg-slate-100 px-3 py-1 text-[11px] font-medium text-slate-700 transition-colors hover:bg-slate-200 dark:bg-white/10 dark:text-slate-200 dark:hover:bg-white/15"
+            >
+              Buscar
+            </button>
+          </SettingsRow>
+
+          <p className="px-3 pb-1 pt-3 text-[10px] font-semibold uppercase tracking-wide text-slate-400">
+            Acerca de
+          </p>
+          <SettingsRow
+            icon={<Heart className="h-4 w-4" />}
+            title="Apoyar el proyecto"
+            description="TGPlusDrive es gratis y sin anuncios. Una donación voluntaria ayuda a mantenerlo."
+          >
+            <button
+              onClick={onDonate}
+              className="rounded-full bg-amber-100 px-3 py-1 text-[11px] font-semibold text-amber-800 transition-colors hover:bg-amber-200 dark:bg-amber-500/15 dark:text-amber-200 dark:hover:bg-amber-500/25"
+            >
+              Donar
+            </button>
+          </SettingsRow>
+          <div className="px-3 pb-3 pt-2 text-[10px] text-slate-400 dark:text-slate-500">
+            Hecho con <span className="text-rose-500">♥</span> por{' '}
+            <span className="font-bold text-gd-blue">Jatniel</span> · GPL-3.0
+          </div>
         </div>
       </div>
     </div>
