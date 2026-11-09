@@ -1,4 +1,4 @@
-# TGPlusDrive 0.1.2 (Beta)
+# TGPlusDrive 0.1.3 (Beta)
 
 Tu nube personal ilimitada sobre Telegram. Una app de escritorio con interfaz
 tipo Google Drive que usa tus **Mensajes guardados** como almacenamiento. Sin
@@ -10,8 +10,19 @@ servidores propios, sin telemetría y sin anuncios.
 
 ## Descargas
 
-- **TGPlusDrive.Setup.0.1.2.exe** — instalador NSIS (recomendado).
-- **TGPlusDrive.0.1.2.exe** — portable (tarda más en arrancar).
+- **TGPlusDrive.Setup.0.1.3.exe** — instalador NSIS (recomendado).
+- **TGPlusDrive.0.1.3.exe** — portable (tarda más en arrancar).
+
+## Novedades de esta versión
+
+- **Progreso del respaldo preciso**: la barra ahora muestra el progreso del
+  archivo actual y el contador X/Y solo cuenta los archivos realmente
+  pendientes. Antes, un archivo grande que debía dividirse arrancaba la barra a
+  la mitad porque el porcentaje se calculaba sobre el lote completo.
+- **Cancelar carga**: además de Pausar, el panel de transferencias y el modal de
+  respaldo tienen **Cancelar**, que aborta el archivo en curso y detiene el lote.
+- **Etiquetas de formato**: cada miniatura muestra una pequeña insignia con su
+  extensión (`MP4`, `MKV`, `RAR`, `MP3`, `PDF`…), con color por tipo de archivo.
 
 ## Lo más destacado
 
@@ -20,7 +31,7 @@ servidores propios, sin telemetría y sin anuncios.
   de partes y herramienta offline `Recuperar TGPlusDrive.html` para recomponerlos
   incluso sin la app.
 - **Respaldo automático** de una carpeta del PC: vigila cambios, detecta renombres
-  por hash, se puede pausar y restaurar al PC con toda la estructura.
+  por hash, se puede pausar, cancelar y restaurar al PC con toda la estructura.
 - **Duplicados e integridad**: SHA-256 al subir y al bajar, aviso de duplicados con
   *Sustituir* o *Subir copia*.
 - **Reproductor mpv** en ventana propia con seek instantáneo (servidor local
@@ -30,12 +41,6 @@ servidores propios, sin telemetría y sin anuncios.
 - **Carpetas completas**: subir, descargar y restaurar conservando subcarpetas.
 - **Multiperfil** (hasta 4 cuentas), login por teléfono o QR, temas claro/oscuro.
 - **Código abierto** (GPL-3.0).
-
-## Novedades de esta versión
-
-- Iconos diferenciados en la barra superior: **sincronizar índice** (nube azul)
-  y **buscar actualizaciones** (caja abierta ámbar con flecha).
-- El buscador de actualizaciones ya está integrado en la app.
 
 ## Primer uso
 

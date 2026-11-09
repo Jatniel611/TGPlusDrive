@@ -678,6 +678,19 @@ export function Drive({
     }
   }
 
+  const cancelBackup = async (): Promise<void> => {
+    if (backupBusy) return
+    setBackupBusy(true)
+    try {
+      setBackupInfo(await window.api.backup.cancel())
+      showToast('Respaldo cancelado')
+    } catch (err) {
+      showToast(err instanceof Error ? err.message : String(err))
+    } finally {
+      setBackupBusy(false)
+    }
+  }
+
   const toggleBackupPause = async (): Promise<void> => {
     if (backupBusy) return
     setBackupBusy(true)
@@ -1632,6 +1645,7 @@ export function Drive({
                           <Star className="h-3.5 w-3.5 fill-amber-400 text-amber-400" />
                         </span>
                       )}
+                      {node.kind === 'file' && <ExtensionBadge name={node.name} />}
                     </div>
                     <div className="mt-1 flex items-center gap-2">
                       <FileIcon node={node} size={15} />
@@ -1712,6 +1726,7 @@ export function Drive({
                           backupState={backupState}
                         />
                         <span className="ellipsis text-slate-700 dark:text-slate-200">{node.name}</span>
+                        {node.kind === 'file' && <ExtensionBadge name={node.name} inline />}
                         {isBackup && (
                           <span
                             title={
@@ -2227,6 +2242,7 @@ export function Drive({
                       </span>
                       <div className="flex items-center gap-1">
                         {item.id.startsWith('backup:') && backupInfo?.enabled && (
+                          <>
                             <button
                               onClick={() => void toggleBackupPause()}
                               disabled={backupBusy}
@@ -2241,7 +2257,18 @@ export function Drive({
                                 ? 'Reanudar'
                                 : 'Pausar'}
                             </button>
-                          )}
+                            {item.status !== 'done' && item.status !== 'error' && (
+                              <button
+                                onClick={() => void cancelBackup()}
+                                disabled={backupBusy}
+                                className="inline-flex items-center gap-1 rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-600 hover:bg-red-100 disabled:opacity-50 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+                              >
+                                <X className="h-3 w-3" />
+                                Cancelar
+                              </button>
+                            )}
+                          </>
+                        )}
                         {item.status === 'uploading' &&
                           !item.id.startsWith('backup:') &&
                           onCancelTransfer && (
@@ -2273,6 +2300,62 @@ export function Drive({
         </div>
       )}
     </div>
+  )
+}
+
+/** Extensión de archivo en minúsculas (máx. 4 letras) o null. */
+function extensionOf(name: string): string | null {
+  const dot = name.lastIndexOf('.')
+  if (dot <= 0 || dot === name.length - 1) return null
+  const ext = name.slice(dot + 1).toLowerCase()
+  if (!/^[a-z0-9]{1,6}$/.test(ext)) return null
+  return ext
+}
+
+const EXT_STYLES: Record<string, string> = {
+  video: 'bg-rose-500/90 text-white ring-rose-300/40',
+  audio: 'bg-violet-500/90 text-white ring-violet-300/40',
+  image: 'bg-emerald-500/90 text-white ring-emerald-300/40',
+  archive: 'bg-amber-500/90 text-white ring-amber-300/40',
+  doc: 'bg-blue-500/90 text-white ring-blue-300/40',
+  code: 'bg-cyan-600/90 text-white ring-cyan-300/40'
+}
+
+const EXT_CATEGORY: Record<string, keyof typeof EXT_STYLES> = {
+  mp4: 'video', mkv: 'video', avi: 'video', mov: 'video', webm: 'video', wmv: 'video',
+  flv: 'video', m4v: 'video', mpg: 'video', mpeg: 'video', ts: 'video', m2ts: 'video',
+  mp3: 'audio', ogg: 'audio', oga: 'audio', wav: 'audio', flac: 'audio', m4a: 'audio',
+  aac: 'audio', opus: 'audio', wma: 'audio', aiff: 'audio', mid: 'audio',
+  jpg: 'image', jpeg: 'image', png: 'image', gif: 'image', webp: 'image', bmp: 'image',
+  svg: 'image', heic: 'image', avif: 'image', tif: 'image', tiff: 'image',
+  zip: 'archive', rar: 'archive', '7z': 'archive', tar: 'archive', gz: 'archive',
+  bz2: 'archive', xz: 'archive', iso: 'archive', exe: 'archive', apk: 'archive',
+  pdf: 'doc', doc: 'doc', docx: 'doc', txt: 'doc', md: 'doc', rtf: 'doc', epub: 'doc',
+  xls: 'doc', xlsx: 'doc', csv: 'doc', ppt: 'doc', pptx: 'doc',
+  js: 'code', tsx: 'code', jsx: 'code', json: 'code', html: 'code',
+  css: 'code', py: 'code', rs: 'code', go: 'code', java: 'code', sh: 'code', xml: 'code'
+}
+
+function ExtensionBadge({
+  name,
+  inline = false
+}: {
+  name: string
+  inline?: boolean
+}): JSX.Element | null {
+  const ext = extensionOf(name)
+  if (!ext) return null
+  const category = EXT_CATEGORY[ext] ?? 'doc'
+  const style = EXT_STYLES[category]
+  return (
+    <span
+      title={ext.toUpperCase()}
+      className={`shrink-0 select-none rounded-[4px] px-1 py-[1px] text-[8px] font-bold uppercase leading-none tracking-wide ring-1 ${
+        inline ? '' : 'absolute bottom-1 right-1 shadow-sm'
+      } ${style}`}
+    >
+      {ext}
+    </span>
   )
 }
 
@@ -3072,6 +3155,19 @@ function BackupModal({
     }
   }
 
+  const cancelRun = async (): Promise<void> => {
+    setRunning(true)
+    setError(null)
+    try {
+      onChange(await window.api.backup.cancel())
+      onToast('Respaldo cancelado')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setRunning(false)
+    }
+  }
+
   const active = info?.running || running
 
   return (
@@ -3241,6 +3337,16 @@ function BackupModal({
             >
               {info.paused ? <Play className="h-4 w-4" /> : <Pause className="h-4 w-4" />}
               {info.paused ? 'Reanudar respaldo' : 'Pausar respaldo'}
+            </button>
+          )}
+          {info?.enabled && (info.uploading || info.paused) && (
+            <button
+              onClick={() => void cancelRun()}
+              disabled={running}
+              className="inline-flex items-center gap-1.5 rounded-full bg-red-50 px-3 py-1.5 text-sm font-medium text-red-600 transition-colors hover:bg-red-100 disabled:opacity-50 dark:bg-red-500/10 dark:text-red-400 dark:hover:bg-red-500/20"
+            >
+              <X className="h-4 w-4" />
+              Cancelar carga
             </button>
           )}
           <button

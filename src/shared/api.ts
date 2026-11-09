@@ -79,6 +79,7 @@ export interface TgApi {
     runNow(): Promise<BackupInfo>
     pause(): Promise<BackupInfo>
     resume(): Promise<BackupInfo>
+    cancel(): Promise<BackupInfo>
     resetSkipped(): Promise<BackupInfo>
     onState(cb: (info: BackupInfo) => void): () => void
   }

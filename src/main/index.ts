@@ -801,7 +801,7 @@ function startBackupForActive(): void {
   backupManager = new BackupManager(
     {
       store: session.store,
-      uploadFile: async (parentId, filePath, sha256, onProgress) => {
+      uploadFile: async (parentId, filePath, sha256, onProgress, shouldCancel) => {
         if (active !== session) throw new Error('El perfil activo cambió durante el respaldo')
         let created: string | null = null
         let failure: string | undefined
@@ -811,6 +811,7 @@ function startBackupForActive(): void {
           silent: true,
           silentProgress: true,
           onProgress,
+          shouldCancel,
           onError: (message) => {
             failure = message
           },
@@ -1066,6 +1067,8 @@ interface UploadOptions {
   onUploaded?: (info: { path: string; nodeId: string }) => void
   onProgress?: (progress: number, speed?: number, eta?: number) => void
   onError?: (message: string) => void
+  /** El respaldo lo usa para abortar el archivo en curso al cancelar. */
+  shouldCancel?: () => boolean
   /** No emite drive:changed/index por cada archivo (lo usa el respaldo). */
   silent?: boolean
   /** No emite una fila drive:progress por archivo (el respaldo agrega). */
@@ -1144,7 +1147,7 @@ async function uploadPaths(
 
         const uploadMeter = makeMeter()
         const progressFn = ((progress: number) => {
-          if (cancelledUploads.has(progressId)) {
+          if (cancelledUploads.has(progressId) || options.shouldCancel?.()) {
             progressFn.isCanceled = true
             return
           }
@@ -1173,7 +1176,7 @@ async function uploadPaths(
             filePath,
             `TGPLUSDRIVE|${nodeId}|${name}`,
             progressFn,
-            () => cancelledUploads.has(progressId)
+            () => cancelledUploads.has(progressId) || Boolean(options.shouldCancel?.())
           )
           uploadControls.delete(progressId)
           activeUploads.delete(nodeId)
@@ -1219,7 +1222,8 @@ async function uploadPaths(
           }
           saveUploadManifest(manifest)
 
-          const isCancelled = (): boolean => cancelledUploads.has(progressId)
+          const isCancelled = (): boolean =>
+            cancelledUploads.has(progressId) || Boolean(options.shouldCancel?.())
           let completedBytes = manifest.parts.reduce((sum, part) => sum + part.size, 0)
           let nextIndex = manifest.parts.reduce((max, part) => Math.max(max, part.index), -1) + 1
 
@@ -2418,6 +2422,13 @@ function registerIpc(): void {
     if (!backupManager) startBackupForActive()
     if (!backupManager) throw new Error('No se pudo iniciar el respaldo automático')
     backupManager.resume()
+    return backupManager.info()
+  })
+
+  ipcMain.handle('backup:cancel', async () => {
+    requireActive()
+    if (!backupManager) throw new Error('El respaldo automático no está activo')
+    backupManager.cancel()
     return backupManager.info()
   })
 

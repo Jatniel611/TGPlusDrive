@@ -79,7 +79,8 @@ export interface BackupDeps {
     parentId: string | null,
     path: string,
     sha256: string,
-    onProgress?: BackupFileProgress
+    onProgress?: BackupFileProgress,
+    shouldCancel?: () => boolean
   ) => Promise<string | null>
   deleteNodes: (ids: string[]) => Promise<void>
   refresh: () => void
@@ -101,6 +102,7 @@ export class BackupManager {
   private currentProgress = 0
   private currentSpeed = 0
   private currentEta = 0
+  private cancelRequested = false
   private lastProgressAt = 0
   private watcher: FSWatcher | null = null
   private interval: NodeJS.Timeout | null = null
@@ -153,14 +155,6 @@ export class BackupManager {
     }
   }
 
-  private overallProgress(): number {
-    if (this.currentTotal <= 0) return this.currentProgress
-    return Math.min(
-      1,
-      (Math.max(0, this.currentIndex - 1) + this.currentProgress) / this.currentTotal
-    )
-  }
-
   info(): BackupInfo {
     return {
       enabled: this.state.enabled,
@@ -176,7 +170,7 @@ export class BackupManager {
       currentFile: this.currentFile,
       currentIndex: this.currentIndex,
       currentTotal: this.currentTotal,
-      currentProgress: this.overallProgress(),
+      currentProgress: this.currentProgress,
       currentSpeed: this.currentSpeed,
       currentEta: this.currentEta,
       lastScanAt: this.state.lastScanAt,
@@ -300,6 +294,26 @@ export class BackupManager {
     // Si el lote aún está terminando el archivo actual, `sync` verá `running`
     // y encolará otro pase; si ya se detuvo, arranca de inmediato.
     this.schedule(0)
+  }
+
+  /** Cancela el lote actual: termina/aborta el archivo en curso y no sigue. */
+  cancel(): void {
+    if (!this.state.enabled) return
+    this.cancelRequested = true
+    this.paused = false
+    if (this.debounce) {
+      clearTimeout(this.debounce)
+      this.debounce = null
+    }
+    this.emitInfo()
+    if (!this.running) {
+      this.cancelRequested = false
+      this.emitProgress('error', true, 'Cancelado')
+    }
+  }
+
+  isCancelled(): boolean {
+    return this.cancelRequested || this.disposed
   }
 
   /** Vuelve a respaldar los archivos que se habían omitido por borrarlos a mano. */
@@ -448,12 +462,13 @@ export class BackupManager {
     const generation = this.generation
     this.state.lastError = undefined
     this.currentIndex = 0
-    this.currentTotal = this.countFiles(this.state.sourceDir)
+    this.currentTotal = this.countPendingFiles(this.state.sourceDir, '')
     this.currentProgress = 0
     this.currentSpeed = 0
     this.currentEta = 0
     this.currentFile = undefined
     this.uploading = false
+    this.cancelRequested = false
     this.emitInfo()
     try {
       this.ensureWatcher()
@@ -477,18 +492,57 @@ export class BackupManager {
       this.save(true)
       // Solo avisar al panel si este pase subió algo de verdad. Un escaneo sin
       // cambios no debe aparecer como "respaldo en curso" ni re-subir el índice.
-      if (this.uploading) {
+      if (this.cancelRequested) {
+        this.emitProgress('error', true, 'Cancelado')
+      } else if (this.uploading) {
         if (this.paused) this.emitProgress('paused', true)
         else if (this.state.lastError) this.emitProgress('error', true)
         else this.emitProgress('done', true)
       }
       this.uploading = false
+      this.cancelRequested = false
       this.emitInfo()
       if (this.queued) {
         this.queued = false
         this.schedule(1500)
       }
     }
+  }
+
+  private countPendingFiles(dir: string, relDir: string): number {
+    let total = 0
+    let entries: Dirent[] = []
+    try {
+      entries = readdirSync(dir, { withFileTypes: true })
+    } catch {
+      return 0
+    }
+    for (const dirent of entries) {
+      const abs = join(dir, dirent.name)
+      const rel = relDir ? `${relDir}/${dirent.name}` : dirent.name
+      if (dirent.isDirectory()) {
+        total += this.countPendingFiles(abs, rel)
+        continue
+      }
+      if (!dirent.isFile()) continue
+      const entry = this.state.entries[rel]
+      const node = entry ? this.deps.store.node(entry.nodeId) : undefined
+      let size: number
+      let mtimeMs: number
+      try {
+        const fileStat = statSync(abs)
+        size = fileStat.size
+        mtimeMs = fileStat.mtimeMs
+      } catch {
+        continue
+      }
+      if (entry && node && !node.trashed && entry.size === size && entry.mtimeMs === mtimeMs) {
+        continue
+      }
+      if (!entry && this.state.skipped?.[rel]) continue
+      total += 1
+    }
+    return total
   }
 
   private countFiles(dir: string): number {
@@ -524,16 +578,15 @@ export class BackupManager {
     }
     for (const dirent of entries) {
       if (this.disposed || this.generation !== generation || this.paused) return
+      if (this.cancelRequested) return
       const abs = join(absDir, dirent.name)
       const rel = relDir ? `${relDir}/${dirent.name}` : dirent.name
       if (dirent.isDirectory()) {
         const childId = this.ensureFolder(relDir, dirent.name, folderId)
         await this.syncFolder(abs, rel, childId, generation)
       } else if (dirent.isFile()) {
-        this.currentIndex += 1
-        this.currentFile = rel
         await this.syncFile(abs, rel, folderId, generation)
-        if (this.paused) return
+        if (this.paused || this.cancelRequested) return
       }
     }
   }
@@ -562,6 +615,10 @@ export class BackupManager {
     ) {
       return
     }
+
+    // Archivo realmente pendiente: cuenta para el X/Y del lote.
+    this.currentIndex += 1
+    this.currentFile = rel
 
     let hash: string
     try {
@@ -640,15 +697,25 @@ export class BackupManager {
       this.emitInfo()
     }
     try {
-      created = await this.deps.uploadFile(parentId, abs, hash, (progress, speed, eta) => {
-        if (this.paused) return
-        this.currentProgress = progress
-        if (speed !== undefined) this.currentSpeed = speed
-        if (eta !== undefined) this.currentEta = eta
-        this.emitProgress('uploading')
-      })
+      created = await this.deps.uploadFile(
+        parentId,
+        abs,
+        hash,
+        (progress, speed, eta) => {
+          if (this.paused || this.cancelRequested) return
+          this.currentProgress = progress
+          if (speed !== undefined) this.currentSpeed = speed
+          if (eta !== undefined) this.currentEta = eta
+          this.emitProgress('uploading')
+        },
+        () => this.cancelRequested || this.disposed
+      )
     } catch (err) {
       if (oldId) this.deps.store.restore([oldId])
+      if (this.cancelRequested) {
+        this.emitInfo()
+        return
+      }
       this.state.lastError = `No se pudo subir ${rel}: ${
         err instanceof Error ? err.message : String(err)
       }`
@@ -848,7 +915,11 @@ export class BackupManager {
     }
   }
 
-  private emitProgress(status: BackupProgress['status'], force = false): void {
+  private emitProgress(
+    status: BackupProgress['status'],
+    force = false,
+    error?: string
+  ): void {
     if (this.paused && status !== 'paused') return
     const now = Date.now()
     if (!force && now - this.lastProgressAt < 250) return
@@ -856,13 +927,14 @@ export class BackupManager {
     try {
       this.deps.progress({
         name: this.currentFile ?? '',
-        progress: this.overallProgress(),
+        progress: this.currentProgress,
         status,
         index: this.currentIndex,
         total: this.currentTotal,
         speed: this.currentSpeed,
         eta: this.currentEta,
-        detail: this.currentFile
+        detail: this.currentFile,
+        error
       })
       this.emitInfo()
     } catch {

@@ -69,6 +69,7 @@ const api: TgApi = {
     runNow: () => ipcRenderer.invoke('backup:runNow'),
     pause: () => ipcRenderer.invoke('backup:pause'),
     resume: () => ipcRenderer.invoke('backup:resume'),
+    cancel: () => ipcRenderer.invoke('backup:cancel'),
     resetSkipped: () => ipcRenderer.invoke('backup:resetSkipped'),
     onState: (cb) => subscribe<BackupInfo>('backup:state', cb)
   },
