@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>TGPlusDrive — Tu nube ilimitada sobre Telegram</title>
+    <meta
+      name="description"
+      content="TGPlusDrive: nube personal ilimitada y gratis usando los Mensajes guardados de Telegram. Respaldo automático, archivos gigantes, reproductor mpv y búsqueda inteligente. Open source, sin anuncios ni telemetría."
+    />
+    <meta name="keywords" content="nube gratis, Telegram, almacenamiento ilimitado, respaldo automático, Google Drive alternativo, open source, Windows, Telegram Drive" />
+    <meta name="author" content="Jatniel" />
+    <meta name="robots" content="index, follow" />
+    <link rel="canonical" href="https://jatniel611.github.io/TGPlusDrive/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="TGPlusDrive — Tu nube ilimitada sobre Telegram" />
+    <meta
+      property="og:description"
+      content="Nube personal ilimitada usando Mensajes guardados de Telegram. Respaldo automático, archivos gigantes, mpv y búsqueda inteligente. Gratis y open source."
+    />
+    <meta property="og:url" content="https://jatniel611.github.io/TGPlusDrive/" />
+    <meta property="og:image" content="https://jatniel611.github.io/TGPlusDrive/screenshots/app.png" />
+    <meta property="og:locale" content="es_ES" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TGPlusDrive — Tu nube ilimitada sobre Telegram" />
+    <meta name="twitter:description" content="Nube personal ilimitada sobre Telegram. Respaldo automático, archivos gigantes y mpv. Open source." />
+    <meta name="twitter:image" content="https://jatniel611.github.io/TGPlusDrive/screenshots/app.png" />
+
+    <link rel="icon" href="logo.svg" type="image/svg+xml" />
+    <style>
+      :root {
+        --blue: #1a73e8;
+        --blue-dark: #155ab6;
+        --bg: #f6f8fc;
+        --text: #1f2430;
+        --muted: #5f6b7d;
+        --card: #ffffff;
+        --line: #e3e8f0;
+        --amber: #f59e0b;
+      }
+      * { box-sizing: border-box; }
+      html { scroll-behavior: smooth; }
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        line-height: 1.6;
+      }
+      a { color: var(--blue); }
+      .wrap { max-width: 1060px; margin: 0 auto; padding: 0 20px; }
+
+      header {
+        padding: 64px 0 40px;
+        text-align: center;
+        background: radial-gradient(ellipse at top, #e8f0fe 0%, var(--bg) 65%);
+      }
+      .logo-row { display: flex; align-items: center; justify-content: center; gap: 14px; }
+      .logo-row img { width: 64px; height: 64px; }
+      h1 { font-size: clamp(1.9rem, 5vw, 2.9rem); margin: 0; letter-spacing: -0.02em; }
+      h1 span { color: var(--blue); }
+      .tagline { font-size: clamp(1rem, 2.4vw, 1.2rem); color: var(--muted); max-width: 640px; margin: 14px auto 0; }
+      .actions { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 28px; }
+      .btn {
+        display: inline-flex; align-items: center; gap: 8px;
+        padding: 12px 22px; border-radius: 999px; font-weight: 600;
+        text-decoration: none; font-size: 0.95rem; transition: transform .15s ease, box-shadow .15s ease;
+      }
+      .btn:hover { transform: translateY(-1px); }
+      .btn-primary { background: var(--blue); color: #fff; box-shadow: 0 8px 20px rgba(26,115,232,.28); }
+      .btn-primary:hover { background: var(--blue-dark); }
+      .btn-ghost { background: var(--card); color: var(--text); border: 1px solid var(--line); }
+      .btn-amber { background: #fef3c7; color: #92400e; border: 1px solid #fcd34d; }
+      .badges { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 22px; }
+      .badge { font-size: 0.75rem; background: var(--card); border: 1px solid var(--line); color: var(--muted); padding: 4px 10px; border-radius: 999px; }
+
+      main { padding: 20px 0 64px; }
+      h2 { font-size: 1.5rem; margin: 52px 0 8px; letter-spacing: -0.01em; }
+      .sub { color: var(--muted); margin: 0 0 22px; }
+      .grid { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+      .card {
+        background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+        padding: 20px; transition: box-shadow .18s ease, transform .18s ease;
+      }
+      .card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(16,24,40,.08); }
+      .card .emoji { font-size: 1.5rem; }
+      .card h3 { margin: 8px 0 6px; font-size: 1.02rem; }
+      .card p { margin: 0; color: var(--muted); font-size: 0.92rem; }
+
+      .shot { margin-top: 26px; border-radius: 18px; overflow: hidden; border: 1px solid var(--line); box-shadow: 0 24px 60px rgba(16,24,40,.14); background: #fff; }
+      .shot img { display: block; width: 100%; height: auto; }
+
+      .steps { counter-reset: step; display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); }
+      .step { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 18px; }
+      .step::before {
+        counter-increment: step; content: counter(step);
+        display: inline-flex; align-items: center; justify-content: center;
+        width: 28px; height: 28px; border-radius: 50%; background: #e8f0fe; color: var(--blue);
+        font-weight: 700; font-size: 0.85rem; margin-bottom: 10px;
+      }
+      .step h3 { margin: 0 0 4px; font-size: 1rem; }
+      .step p { margin: 0; color: var(--muted); font-size: 0.9rem; }
+
+      .note { margin-top: 18px; background: #fffbeb; border: 1px solid #fde68a; color: #92400e; padding: 14px 18px; border-radius: 12px; font-size: 0.9rem; }
+      .faq details { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; margin-bottom: 10px; }
+      .faq summary { cursor: pointer; font-weight: 600; }
+      .faq p { color: var(--muted); margin: 8px 0 0; font-size: 0.93rem; }
+
+      footer { border-top: 1px solid var(--line); padding: 28px 0 44px; text-align: center; color: var(--muted); font-size: 0.85rem; }
+      footer a { font-weight: 600; }
+      @media (prefers-color-scheme: dark) {
+        :root { --bg: #0f1218; --text: #e8eaf0; --muted: #9aa5b6; --card: #171b23; --line: #262c38; }
+        header { background: radial-gradient(ellipse at top, #16233a 0%, var(--bg) 65%); }
+        .btn-ghost { color: var(--text); }
+        .badge { background: var(--card); }
+        .note { background: #2a2210; border-color: #5b4512; color: #fbbf24; }
+        .step::before { background: #17304f; }
+      }
+    </style>
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@type": "SoftwareApplication",
+        "name": "TGPlusDrive",
+        "applicationCategory": "UtilitiesApplication",
+        "operatingSystem": "Windows 10, Windows 11",
+        "description": "Nube personal ilimitada y gratuita usando los Mensajes guardados de Telegram. Respaldo automático, archivos gigantes, reproductor mpv y búsqueda inteligente.",
+        "url": "https://jatniel611.github.io/TGPlusDrive/",
+        "downloadUrl": "https://github.com/Jatniel611/TGPlusDrive/releases/latest",
+        "softwareVersion": "0.1.6",
+        "license": "https://www.gnu.org/licenses/gpl-3.0.html",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "EUR" },
+        "author": { "@type": "Person", "name": "Jatniel" }
+      }
+    </script>
+  </head>
+  <body>
+    <header>
+      <div class="wrap">
+        <div class="logo-row">
+          <img src="logo.svg" alt="TGPlusDrive" width="64" height="64" />
+          <h1>TGPlus<span>Drive</span></h1>
+        </div>
+        <p class="tagline">
+          Tu nube personal <strong>ilimitada y gratis</strong> usando los Mensajes
+          guardados de Telegram. Respaldo automático, archivos gigantes y reproductor
+          integrado. Sin anuncios, sin telemetría, sin servidores intermedios.
+        </p>
+        <div class="actions">
+          <a class="btn btn-primary" href="https://github.com/Jatniel611/TGPlusDrive/releases/latest">⬇️ Descargar para Windows</a>
+          <a class="btn btn-ghost" href="https://github.com/Jatniel611/TGPlusDrive">⭐ Ver en GitHub</a>
+          <a class="btn btn-amber" href="https://www.paypal.com/donate/?hosted_button_id=JRW79EKXDN5MW">💛 Apoyar el proyecto</a>
+        </div>
+        <div class="badges">
+          <span class="badge">🪟 Windows 10/11</span>
+          <span class="badge">🆓 Gratis y open source</span>
+          <span class="badge">🔒 Sin telemetría</span>
+          <span class="badge">📦 GPL-3.0</span>
+        </div>
+      </div>
+    </header>
+
+    <main class="wrap">
+      <div class="shot">
+        <img src="screenshots/app.png" alt="Captura de TGPlusDrive mostrando la unidad de archivos sobre Telegram" loading="lazy" />
+      </div>
+
+      <h2>¿Por qué TGPlusDrive?</h2>
+      <p class="sub">Lo mejor de un cliente de Telegram y de una nube, en una sola app.</p>
+      <div class="grid">
+        <div class="card">
+          <div class="emoji">♾️</div>
+          <h3>Espacio ilimitado sin coste</h3>
+          <p>Usa los Mensajes guardados de tu propia cuenta. Sin cuotas artificiales ni servidores intermedios.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">🔐</div>
+          <h3>Privacidad por diseño</h3>
+          <p>Sin anuncios ni analítica. La sesión se cifra con DPAPI y solo se descifra en tu usuario de Windows.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">🗂️</div>
+          <h3>Archivos gigantes de verdad</h3>
+          <p>Divide automáticamente por encima del límite de Telegram y reanuda partes. Incluye herramienta offline para recomponerlos.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">🔄</div>
+          <h3>Respaldo automático</h3>
+          <p>Espeja una carpeta de tu PC a Telegram, detecta renombres por hash, se pausa, se cancela y se restaura con toda la estructura.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">🎬</div>
+          <h3>Reproductor profesional</h3>
+          <p>mpv en ventana propia con seek instantáneo gracias a un servidor local con soporte <code>Range</code>.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">🔎</div>
+          <h3>Búsqueda inteligente</h3>
+          <p>Encuentra «Currículum» escribiendo <code>curriculum</code> y «Presupuesto2026» con <code>presupuesto 2026</code>.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">🧩</div>
+          <h3>Integridad y duplicados</h3>
+          <p>SHA-256 al subir y al bajar. Aviso de duplicados con <em>Sustituir</em> o <em>Subir copia</em>.</p>
+        </div>
+        <div class="card">
+          <div class="emoji">👥</div>
+          <h3>Multiperfil y QR</h3>
+          <p>Hasta 4 cuentas de Telegram, inicio de sesión por teléfono o QR, temas claro y oscuro.</p>
+        </div>
+      </div>
+
+      <h2>Cómo empezar en 3 pasos</h2>
+      <p class="sub">Necesitas una cuenta de Telegram y tus credenciales de API (gratis).</p>
+      <div class="steps">
+        <div class="step">
+          <h3>Descarga e instala</h3>
+          <p>Baja el instalador desde GitHub Releases y ejecútalo. También hay versión portable.</p>
+        </div>
+        <div class="step">
+          <h3>Conecta Telegram</h3>
+          <p>Introduce tu <code>api_id</code> y <code>api_hash</code> de my.telegram.org e inicia sesión con teléfono o QR.</p>
+        </div>
+        <div class="step">
+          <h3>Sube y respalda</h3>
+          <p>Arrastra archivos o activa el respaldo automático de una carpeta de tu PC.</p>
+        </div>
+      </div>
+
+      <div class="note">
+        ⚠️ El instalador aún no está firmado: Windows SmartScreen puede avisar. Verifica
+        el SHA-256 publicado en cada release. Próximamente con firma de código.
+      </div>
+
+      <h2>Preguntas frecuentes</h2>
+      <div class="faq">
+        <details>
+          <summary>¿Es realmente gratis e ilimitado?</summary>
+          <p>Sí. TGPlusDrive no tiene servidores propios: usa el almacenamiento de tu cuenta de Telegram. El único límite es el tamaño por archivo de Telegram (2 GB, o 4 GB con Premium), que la app resuelve dividiendo el archivo.</p>
+        </details>
+        <details>
+          <summary>¿Mis archivos están cifrados?</summary>
+          <p>Viajan y se guardan cifrados en los servidores de Telegram, pero Telegram puede acceder a ellos. La sesión local sí está cifrada con DPAPI. El cifrado de extremo a extremo no está implementado.</p>
+        </details>
+        <details>
+          <summary>¿Funciona sin Telegram Premium?</summary>
+          <p>Sí. Con la cuenta gratuita el límite por archivo es de 2 GB; la app lo divide automáticamente.</p>
+        </details>
+        <details>
+          <summary>¿Puedo borrar la app sin perder mis archivos?</summary>
+          <p>Sí. Los archivos viven en tus Mensajes guardados de Telegram. Al reinstalar y volver a iniciar sesión, el índice se restaura.</p>
+        </details>
+        <details>
+          <summary>¿Por qué Windows avisa al instalar?</summary>
+          <p>Porque el ejecutable todavía no tiene firma de código. Es un aviso de SmartScreen, no un virus. Puedes compilarlo tú mismo desde el código fuente o verificar el hash del release.</p>
+        </details>
+      </div>
+    </main>
+
+    <footer>
+      <p>
+        Hecho con ♥ por <strong>Jatniel</strong> · Licencia
+        <a href="https://github.com/Jatniel611/TGPlusDrive/blob/main/LICENSE">GPL-3.0</a>
+        · <a href="https://github.com/Jatniel611/TGPlusDrive">GitHub</a>
+        · <a href="https://www.paypal.com/donate/?hosted_button_id=JRW79EKXDN5MW">Donar</a>
+      </p>
+      <p style="margin-top:6px;font-size:.78rem">Telegram es una marca de Telegram FZ-LLC. TGPlusDrive no está afiliado a Telegram.</p>
+    </footer>
+  </body>
+</html>
