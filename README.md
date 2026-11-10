@@ -16,8 +16,7 @@ Gratis · Open source · Sin anuncios · Sin telemetría
 
 </div>
 
-![Interfaz de TGPlusDrive](<img width="1302" height="851" alt="Captura de pantalla 2026-11-09 205515" src="https://github.com/user-attachments/assets/63ec9040-3ad9-4c9c-9737-b07da64fe3e0" />
-)
+![Interfaz de TGPlusDrive] <img width="1302" height="851" alt="Captura de pantalla 2026-11-09 205515" src="https://github.com/user-attachments/assets/63ec9040-3ad9-4c9c-9737-b07da64fe3e0" />
 
 ---
 
