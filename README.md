@@ -7,8 +7,8 @@ Aplicación de escritorio para Windows (Electron + React + TypeScript + GramJS/M
 > **Beta 0.1** — Todo vive en tu propia cuenta de Telegram. Sin servidores
 > propios, sin telemetría, sin anuncios.
 
-![TGPlusDrive: interfaz de la unidad sobre Telegram](<img width="1302" height="851" alt="Captura de pantalla 2026-11-09 205515" src="https://github.com/user-attachments/assets/281342b2-c23d-477f-9b10-75d810234cb7" />
-)
+![TGPlusDrive: interfaz de la unidad sobre Telegram] <img width="1302" height="851" alt="Captura de pantalla 2026-11-09 205515" src="https://github.com/user-attachments/assets/281342b2-c23d-477f-9b10-75d810234cb7" />
+
 
 ---
 
