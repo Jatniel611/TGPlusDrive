@@ -91,7 +91,11 @@ export default function App(): JSX.Element {
         return [...prev, item]
       })
       if (item.status === 'done') playDoneSound()
-      if (item.status !== 'uploading' && item.status !== 'paused') {
+      if (
+        item.status !== 'uploading' &&
+        item.status !== 'queued' &&
+        item.status !== 'paused'
+      ) {
         window.setTimeout(() => {
           setProgress((prev) => prev.filter((entry) => entry.id !== item.id))
         }, 6000)

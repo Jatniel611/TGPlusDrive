@@ -1,4 +1,4 @@
-# TGPlusDrive 0.1.6 (Beta)
+# TGPlusDrive 0.1.7 (Beta)
 
 Tu nube personal ilimitada sobre Telegram. Una app de escritorio con interfaz
 tipo Google Drive que usa tus **Mensajes guardados** como almacenamiento. Sin
@@ -10,14 +10,16 @@ servidores propios, sin telemetría y sin anuncios.
 
 ## Descargas
 
-- **TGPlusDrive.Setup.0.1.6.exe** — instalador NSIS (recomendado).
-- **TGPlusDrive.0.1.6.exe** — portable (tarda más en arrancar).
+- **TGPlusDrive.Setup.0.1.7.exe** — instalador NSIS (recomendado).
+- **TGPlusDrive.0.1.7.exe** — portable (tarda más en arrancar).
 
 ## Novedades de esta versión
 
-- **Iniciar con Windows**: nuevo interruptor en Configuración → Sistema para
-  abrir la app automáticamente al encender el PC. Funciona con el instalador y
-  con la versión portable (registra el .exe original, no la copia temporal).
+- **Cola de subida visible**: al subir varios archivos o una carpeta, el panel muestra
+  todas las filas desde el principio en estado *En cola* con su posición (1/12, 2/12…),
+  en vez de aparecer solo el que se está subiendo.
+- **Detener todo el lote**: el botón *Detener todo* cancela la fila en curso y toda la
+  cola de esa subida de una sola vez, sin tener que detener archivo por archivo.
 
 ## Lo más destacado
 

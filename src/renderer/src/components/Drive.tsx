@@ -147,7 +147,9 @@ export function Drive({
   onToggleTransfers
 }: Props): JSX.Element {
   const { profile, db } = state
-  const activeItems = transfers.filter((item) => item.status === 'uploading')
+  const activeItems = transfers.filter(
+    (item) => item.status === 'uploading' || item.status === 'queued'
+  )
   const activeTransfers = activeItems.length
   const transferProgress =
     activeItems.length === 0
@@ -2214,6 +2216,8 @@ export function Drive({
                         <AlertTriangle className="h-4 w-4 shrink-0 text-red-500" />
                       ) : item.status === 'paused' ? (
                         <Pause className="h-4 w-4 shrink-0 text-amber-500" />
+                      ) : item.status === 'queued' ? (
+                        <Clock className="h-4 w-4 shrink-0 text-slate-400" />
                       ) : (
                         <Loader2 className="h-4 w-4 shrink-0 animate-spin text-gd-blue" />
                       )}
@@ -2221,13 +2225,15 @@ export function Drive({
                         <span className="mr-1 text-[9px] uppercase tracking-wide text-slate-400">
                           {item.status === 'paused'
                             ? 'En pausa'
-                            : item.id.startsWith('backup:')
-                              ? 'Respaldo'
-                              : item.id.startsWith('restore:')
-                                ? 'Restaurando'
-                                : item.kind === 'download'
-                                  ? 'Bajando'
-                                  : 'Subiendo'}
+                            : item.status === 'queued'
+                              ? 'En cola'
+                              : item.id.startsWith('backup:')
+                                ? 'Respaldo'
+                                : item.id.startsWith('restore:')
+                                  ? 'Restaurando'
+                                  : item.kind === 'download'
+                                    ? 'Bajando'
+                                    : 'Subiendo'}
                         </span>
                         {item.name}
                         {item.index && item.total ? (
@@ -2241,7 +2247,9 @@ export function Drive({
                           ? 'Error'
                           : item.status === 'done'
                             ? 'Listo'
-                            : `${Math.round(item.progress * 100)}%`}
+                            : item.status === 'queued'
+                              ? '—'
+                              : `${Math.round(item.progress * 100)}%`}
                       </span>
                     </div>
                     <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-white/10">
@@ -2253,7 +2261,9 @@ export function Drive({
                               ? 'bg-emerald-500'
                               : item.status === 'paused'
                                 ? 'bg-amber-500'
-                                : 'bg-gd-blue'
+                                : item.status === 'queued'
+                                  ? 'bg-slate-300 dark:bg-white/20'
+                                  : 'bg-gd-blue'
                         }`}
                         style={{ width: `${Math.max(2, Math.round(item.progress * 100))}%` }}
                       />
@@ -2300,14 +2310,19 @@ export function Drive({
                             )}
                           </>
                         )}
-                        {item.status === 'uploading' &&
+                        {(item.status === 'uploading' || item.status === 'queued') &&
                           !item.id.startsWith('backup:') &&
                           onCancelTransfer && (
                             <button
                               onClick={() => onCancelTransfer(item.id, item.kind ?? 'download')}
                               className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400"
+                              title={
+                                item.batchId
+                                  ? 'Detener toda la cola de este lote'
+                                  : 'Detener esta transferencia'
+                              }
                             >
-                              Detener
+                              {item.batchId ? 'Detener todo' : 'Detener'}
                             </button>
                           )}
                       </div>

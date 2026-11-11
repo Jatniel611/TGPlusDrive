@@ -109,7 +109,7 @@ export interface UploadProgress {
   id: string
   name: string
   progress: number
-  status: 'uploading' | 'paused' | 'done' | 'error'
+  status: 'queued' | 'uploading' | 'paused' | 'done' | 'error'
   kind?: 'upload' | 'download'
   error?: string
   size?: number
@@ -120,6 +120,8 @@ export interface UploadProgress {
   /** Índice dentro del lote (1-based) y total de archivos. */
   index?: number
   total?: number
+  /** Lote de subida: permite cancelar toda la cola de una vez. */
+  batchId?: string
 }
 
 export interface ScanProgress {

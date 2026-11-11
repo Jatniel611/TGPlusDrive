@@ -432,6 +432,19 @@ const thumbJobs = new Map<string, Promise<MediaFile | null>>()
 const cancelledDownloads = new Set<string>()
 const cancelledUploads = new Set<string>()
 const uploadControls = new Map<string, { isCanceled?: boolean }>()
+/** Lote al que pertenece cada fila de progreso (para cancelar la cola entera). */
+const uploadBatchOf = new Map<string, string>()
+const cancelledUploadBatches = new Set<string>()
+
+function cancelUploadBatch(batchId: string): void {
+  cancelledUploadBatches.add(batchId)
+  for (const [progressId, batch] of uploadBatchOf) {
+    if (batch !== batchId) continue
+    cancelledUploads.add(progressId)
+    const control = uploadControls.get(progressId)
+    if (control) control.isCanceled = true
+  }
+}
 
 function getThumbnailFile(id: string): Promise<MediaFile | null> {
   const inFlight = thumbJobs.get(id)
@@ -1084,20 +1097,61 @@ async function uploadPaths(
   const session = requireActive()
   let resume = resumeNodeId
   const entries = expandUploadPaths(session.store, parentId, paths)
+  // Identificador del lote: todas las filas de esta subida comparten batchId
+  // para que "Detener" cancele la cola completa de una vez.
+  const batchId = options.silentProgress ? undefined : randomUUID()
+  const showQueue = !options.silentProgress
+  const progressIds: string[] = []
+
+  if (showQueue && entries.length > 1) {
+    // Mostrar la cola completa desde el inicio: el usuario ve cuántos archivos
+    // faltan, aunque la subida sea secuencial.
+    entries.forEach((entry, index) => {
+      const queueId = `queue:${batchId}:${index}`
+      progressIds.push(queueId)
+      if (batchId) uploadBatchOf.set(queueId, batchId)
+      sendProgress({
+        id: queueId,
+        name: basename(entry.path),
+        progress: 0,
+        status: 'queued',
+        kind: 'upload',
+        index: index + 1,
+        total: entries.length,
+        ...(batchId ? { batchId } : {})
+      })
+    })
+  }
+
+  let position = 0
   for (const entry of entries) {
     const filePath = entry.path
     const targetParentId = entry.parentId
     const name = basename(filePath)
-    const progressId = randomUUID()
+    const queueId = progressIds[position]
+    position += 1
+    const progressId = queueId ?? randomUUID()
     let nodeIdForCleanup: string | null = null
+    const emit = (payload: UploadProgress): void => {
+      if (options.silentProgress) return
+      sendProgress({
+        ...payload,
+        ...(payload.index === undefined && entries.length > 1 ? { index: position } : {}),
+        ...(payload.total === undefined && entries.length > 1 ? { total: entries.length } : {}),
+        ...(batchId ? { batchId } : {})
+      })
+    }
     if (!options.silentProgress) {
-      sendProgress({ id: progressId, name, progress: 0, status: 'uploading', kind: 'upload' })
+      emit({ id: progressId, name, progress: 0, status: 'uploading', kind: 'upload' })
     }
     try {
-      if (cancelledUploads.has(progressId)) {
+      if (
+        cancelledUploads.has(progressId) ||
+        (batchId ? cancelledUploadBatches.has(batchId) : false)
+      ) {
         cancelledUploads.delete(progressId)
         if (!options.silentProgress) {
-          sendProgress({
+          emit({
             id: progressId,
             name,
             progress: 0,
@@ -1147,7 +1201,11 @@ async function uploadPaths(
 
         const uploadMeter = makeMeter()
         const progressFn = ((progress: number) => {
-          if (cancelledUploads.has(progressId) || options.shouldCancel?.()) {
+          if (
+            cancelledUploads.has(progressId) ||
+            (batchId ? cancelledUploadBatches.has(batchId) : false) ||
+            options.shouldCancel?.()
+          ) {
             progressFn.isCanceled = true
             return
           }
@@ -1155,7 +1213,7 @@ async function uploadPaths(
           const meter = meterUpdate(uploadMeter, bytes, size)
           if (options.onProgress) options.onProgress(progress, meter.speed, meter.eta)
           if (!options.silentProgress) {
-            sendProgress({
+            emit({
               id: progressId,
               name,
               progress,
@@ -1176,7 +1234,10 @@ async function uploadPaths(
             filePath,
             `TGPLUSDRIVE|${nodeId}|${name}`,
             progressFn,
-            () => cancelledUploads.has(progressId) || Boolean(options.shouldCancel?.())
+            () =>
+              cancelledUploads.has(progressId) ||
+              (batchId ? cancelledUploadBatches.has(batchId) : false) ||
+              Boolean(options.shouldCancel?.())
           )
           uploadControls.delete(progressId)
           activeUploads.delete(nodeId)
@@ -1223,7 +1284,9 @@ async function uploadPaths(
           saveUploadManifest(manifest)
 
           const isCancelled = (): boolean =>
-            cancelledUploads.has(progressId) || Boolean(options.shouldCancel?.())
+            cancelledUploads.has(progressId) ||
+            (batchId ? cancelledUploadBatches.has(batchId) : false) ||
+            Boolean(options.shouldCancel?.())
           let completedBytes = manifest.parts.reduce((sum, part) => sum + part.size, 0)
           let nextIndex = manifest.parts.reduce((max, part) => Math.max(max, part.index), -1) + 1
 
@@ -1368,7 +1431,7 @@ async function uploadPaths(
         }
       }
       if (!options.silentProgress) {
-        sendProgress({ id: progressId, name, progress: 1, status: 'done', kind: 'upload' })
+        emit({ id: progressId, name, progress: 1, status: 'done', kind: 'upload' })
       }
     } catch (err) {
       uploadControls.delete(progressId)
@@ -1379,7 +1442,7 @@ async function uploadPaths(
       if (cancelled) cancelledUploads.delete(progressId)
       options.onError?.(cancelled ? 'Cancelado' : raw)
       if (!options.silentProgress) {
-        sendProgress({
+        emit({
           id: progressId,
           name,
           progress: 0,
@@ -1389,6 +1452,10 @@ async function uploadPaths(
         })
       }
     }
+  }
+  if (batchId) {
+    for (const id of progressIds) uploadBatchOf.delete(id)
+    cancelledUploadBatches.delete(batchId)
   }
   if (!options.silent) {
     emitChanged()
@@ -2566,6 +2633,12 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('drive:cancelUpload', async (_event, id: string) => {
+    // Si la fila pertenece a un lote, cancelar todo el lote (cola completa).
+    const batchId = uploadBatchOf.get(id)
+    if (batchId) {
+      cancelUploadBatch(batchId)
+      return true
+    }
     cancelledUploads.add(id)
     const control = uploadControls.get(id)
     if (control) control.isCanceled = true
