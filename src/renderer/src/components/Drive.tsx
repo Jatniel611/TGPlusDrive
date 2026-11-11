@@ -67,7 +67,7 @@ interface Props {
   onLogout: () => void
   onAddAccount?: () => void
   transfers?: UploadProgress[]
-  onCancelTransfer?: (id: string, kind: 'upload' | 'download') => void
+  onCancelTransfer?: (id: string, kind: 'upload' | 'download', wholeBatch?: boolean) => void
   onClearTransfers?: () => void
   transfersOpen?: boolean
   onToggleTransfers?: () => void
@@ -2181,6 +2181,20 @@ export function Drive({
                 </p>
               </div>
               <div className="flex items-center gap-1">
+                {activeItems.some((item) => item.batchId) && onCancelTransfer && (
+                  <button
+                    onClick={() => {
+                      const batch =
+                        activeItems.find((item) => item.status === 'uploading' && item.batchId) ??
+                        activeItems.find((item) => item.batchId)
+                      if (batch) onCancelTransfer(batch.id, batch.kind ?? 'upload', true)
+                    }}
+                    className="rounded-full bg-red-50 px-2.5 py-1 text-[11px] font-semibold text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400"
+                    title="Detener toda la cola de subida"
+                  >
+                    Detener todo
+                  </button>
+                )}
                 {transfers.length > 0 && onClearTransfers && (
                   <button
                     onClick={onClearTransfers}
@@ -2316,13 +2330,9 @@ export function Drive({
                             <button
                               onClick={() => onCancelTransfer(item.id, item.kind ?? 'download')}
                               className="rounded-full bg-red-50 px-2 py-0.5 font-medium text-red-600 hover:bg-red-100 dark:bg-red-500/10 dark:text-red-400"
-                              title={
-                                item.batchId
-                                  ? 'Detener toda la cola de este lote'
-                                  : 'Detener esta transferencia'
-                              }
+                              title="Detener solo este archivo"
                             >
-                              {item.batchId ? 'Detener todo' : 'Detener'}
+                              Detener
                             </button>
                           )}
                       </div>

@@ -58,7 +58,7 @@ export interface TgApi {
     download(ids: string[]): Promise<boolean>
     restoreToDisk(request: RestoreRequest): Promise<RestoreResult | null>
     cancelDownload(id: string): Promise<boolean>
-    cancelUpload(id: string): Promise<boolean>
+    cancelUpload(id: string, wholeBatch?: boolean): Promise<boolean>
     open(id: string): Promise<boolean>
     rename(id: string, name: string): Promise<DriveState>
     trash(ids: string[]): Promise<DriveState>

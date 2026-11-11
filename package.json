@@ -1,6 +1,6 @@
 {
     "name": "tgplusdrive",
-    "version": "0.1.7",
+    "version": "0.1.8",
     "description": "Gestor de archivos estilo Google Drive sobre Mensajes guardados de Telegram",
     "main": "./out/main/index.js",
     "author": "Jatniel",

@@ -1123,20 +1123,27 @@ async function uploadPaths(
     })
   }
 
-  let position = 0
-  for (const entry of entries) {
+  const concurrency = Math.max(
+    1,
+    Math.min(
+      Number(process.env['TGPLUSDRIVE_UPLOAD_CONCURRENCY']) || 2,
+      Math.max(1, entries.length)
+    )
+  )
+  let cursor = 0
+
+  const uploadOne = async (position: number): Promise<void> => {
+    const entry = entries[position]
     const filePath = entry.path
     const targetParentId = entry.parentId
     const name = basename(filePath)
-    const queueId = progressIds[position]
-    position += 1
-    const progressId = queueId ?? randomUUID()
+    const progressId = progressIds[position] ?? randomUUID()
     let nodeIdForCleanup: string | null = null
     const emit = (payload: UploadProgress): void => {
       if (options.silentProgress) return
       sendProgress({
         ...payload,
-        ...(payload.index === undefined && entries.length > 1 ? { index: position } : {}),
+        ...(payload.index === undefined && entries.length > 1 ? { index: position + 1 } : {}),
         ...(payload.total === undefined && entries.length > 1 ? { total: entries.length } : {}),
         ...(batchId ? { batchId } : {})
       })
@@ -1160,7 +1167,7 @@ async function uploadPaths(
             error: 'Cancelado'
           })
         }
-        continue
+        return
       }
       const size = statSync(filePath).size
       const mime = guessMime(name)
@@ -1453,6 +1460,19 @@ async function uploadPaths(
       }
     }
   }
+
+  // Subida con concurrencia limitada: en lotes grandes (o carpetas) se aceleran
+  // los tiempos sin saturar la conexión de Telegram.
+  const worker = async (): Promise<void> => {
+    while (cursor < entries.length) {
+      const index = cursor
+      cursor += 1
+      if (batchId && cancelledUploadBatches.has(batchId)) continue
+      await uploadOne(index)
+    }
+  }
+  await Promise.all(Array.from({ length: concurrency }, worker))
+
   if (batchId) {
     for (const id of progressIds) uploadBatchOf.delete(id)
     cancelledUploadBatches.delete(batchId)
@@ -1850,9 +1870,22 @@ async function downloadNodes(ids: string[]): Promise<void> {
   if (pick.canceled || pick.filePaths.length === 0) return
   const dir = pick.filePaths[0]
 
-  for (const id of ids) {
-    const node = session.store.node(id)
-    if (!node || node.kind !== 'file' || !node.storage) continue
+  // Descargar varios archivos en paralelo acelera mucho los lotes. Cada archivo
+  // sigue usando 4 conexiones internas; limitamos cuántos archivos a la vez para
+  // no saturar la cuenta.
+  const files = ids
+    .map((id) => session.store.node(id))
+    .filter((node): node is VfsNode => Boolean(node && node.kind === 'file' && node.storage))
+  const fileConcurrency = Math.max(
+    1,
+    Math.min(
+      Number(process.env['TGPLUSDRIVE_DOWNLOAD_CONCURRENCY']) || 2,
+      Math.max(1, files.length)
+    )
+  )
+  let fileCursor = 0
+
+  const downloadOne = async (node: VfsNode): Promise<void> => {
     const dest = uniqueDest(dir, node.name)
     const progressId = randomUUID()
     sendProgress({ id: progressId, name: node.name, kind: 'download', progress: 0, status: 'uploading' })
@@ -1860,16 +1893,16 @@ async function downloadNodes(ids: string[]): Promise<void> {
       if (cancelledDownloads.has(progressId)) {
         cancelledDownloads.delete(progressId)
         sendProgress({ id: progressId, name: node.name, kind: 'download', progress: 0, status: 'error', error: 'Cancelado' })
-        continue
+        return
       }
-      if (node.storage.provider === 'demo' && node.storage.localName) {
-        demoCopyOut(session.profile, node.storage.localName, dest)
+      if (node.storage!.provider === 'demo' && node.storage!.localName) {
+        demoCopyOut(session.profile, node.storage!.localName, dest)
       } else if (
-        node.storage.provider === 'telegram' &&
-        (node.storage.messageId || node.storage.parts?.length)
+        node.storage!.provider === 'telegram' &&
+        (node.storage!.messageId || node.storage!.parts?.length)
       ) {
         if (!session.client) throw new Error('Cliente de Telegram no conectado')
-        const parts = node.storage.parts?.filter((part) => part.size > 0)
+        const parts = node.storage!.parts?.filter((part) => part.size > 0)
         const dlMeter = makeMeter()
         const dlTotal = node.size
         const onProgress = (progress: number): void => {
@@ -1891,7 +1924,7 @@ async function downloadNodes(ids: string[]): Promise<void> {
         } else {
           await downloadFromSaved(
             session.client,
-            node.storage.messageId as number,
+            node.storage!.messageId as number,
             dest,
             onProgress
           )
@@ -1901,7 +1934,7 @@ async function downloadNodes(ids: string[]): Promise<void> {
         cancelledDownloads.delete(progressId)
         try { rmSync(dest, { force: true }) } catch {}
         sendProgress({ id: progressId, name: node.name, kind: 'download', progress: 0, status: 'error', error: 'Cancelado' })
-        continue
+        return
       }
       sendProgress({ id: progressId, name: node.name, kind: 'download', progress: 1, status: 'done' })
     } catch (err) {
@@ -1915,6 +1948,15 @@ async function downloadNodes(ids: string[]): Promise<void> {
       }
     }
   }
+
+  const downloadWorker = async (): Promise<void> => {
+    while (fileCursor < files.length) {
+      const index = fileCursor
+      fileCursor += 1
+      await downloadOne(files[index])
+    }
+  }
+  await Promise.all(Array.from({ length: fileConcurrency }, downloadWorker))
 }
 
 function safeRestoreName(name: string): string {
@@ -2632,18 +2674,21 @@ function registerIpc(): void {
     return true
   })
 
-  ipcMain.handle('drive:cancelUpload', async (_event, id: string) => {
-    // Si la fila pertenece a un lote, cancelar todo el lote (cola completa).
-    const batchId = uploadBatchOf.get(id)
-    if (batchId) {
-      cancelUploadBatch(batchId)
+  ipcMain.handle(
+    'drive:cancelUpload',
+    async (_event, id: string, wholeBatch = false) => {
+      // Con wholeBatch se cancela la cola completa del lote; sin él, solo esa fila.
+      const batchId = uploadBatchOf.get(id)
+      if (wholeBatch && batchId) {
+        cancelUploadBatch(batchId)
+        return true
+      }
+      cancelledUploads.add(id)
+      const control = uploadControls.get(id)
+      if (control) control.isCanceled = true
       return true
     }
-    cancelledUploads.add(id)
-    const control = uploadControls.get(id)
-    if (control) control.isCanceled = true
-    return true
-  })
+  )
 
   ipcMain.handle('drive:open', async (_event, id: string) => {
     await openNode(id)

@@ -48,7 +48,8 @@ const api: TgApi = {
     download: (ids) => ipcRenderer.invoke('drive:download', ids),
     restoreToDisk: (request) => ipcRenderer.invoke('drive:restoreToDisk', request),
     cancelDownload: (id) => ipcRenderer.invoke('drive:cancelDownload', id),
-    cancelUpload: (id) => ipcRenderer.invoke('drive:cancelUpload', id),
+    cancelUpload: (id, wholeBatch) =>
+      ipcRenderer.invoke('drive:cancelUpload', id, Boolean(wholeBatch)),
     open: (id) => ipcRenderer.invoke('drive:open', id),
     rename: (id, name) => ipcRenderer.invoke('drive:rename', { id, name }),
     trash: (ids) => ipcRenderer.invoke('drive:trash', ids),

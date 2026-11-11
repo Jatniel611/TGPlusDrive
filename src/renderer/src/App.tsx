@@ -243,8 +243,8 @@ export default function App(): JSX.Element {
           transfersOpen={transfersOpen}
           onToggleTransfers={() => setTransfersOpen((value) => !value)}
           onClearTransfers={() => setProgress([])}
-          onCancelTransfer={(id, kind) => {
-            if (kind === 'upload') void window.api.drive.cancelUpload(id)
+          onCancelTransfer={(id, kind, wholeBatch) => {
+            if (kind === 'upload') void window.api.drive.cancelUpload(id, wholeBatch)
             else void window.api.drive.cancelDownload(id)
           }}
           onExit={() => setScreen('onboarding')}
