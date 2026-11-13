@@ -1,4 +1,4 @@
-# TGPlusDrive 0.1.9 (Beta)
+# TGPlusDrive 0.1.10 (Beta)
 
 Tu nube personal ilimitada sobre Telegram. Una app de escritorio con interfaz
 tipo Google Drive que usa tus **Mensajes guardados** como almacenamiento. Sin
@@ -10,14 +10,17 @@ servidores propios, sin telemetría y sin anuncios.
 
 ## Descargas
 
-- **TGPlusDrive.Setup.0.1.9.exe** — instalador NSIS (recomendado).
-- **TGPlusDrive.0.1.9.exe** — portable (tarda más en arrancar).
+- **TGPlusDrive.Setup.0.1.10.exe** — instalador NSIS (recomendado).
+- **TGPlusDrive.0.1.10.exe** — portable (tarda más en arrancar).
 
 ## Novedades de esta versión
 
-- **Subida de partes en paralelo**: los archivos divididos suben 2 partes a la vez
-  (antes 1), acelerando los archivos grandes tal como ya pasaba al descargarlos.
-  La reanudacion y la herramienta de recuperacion siguen funcionando igual.
+- **Buscador más preciso**: tolera que el nombre del archivo no incluya todos los
+  datos de la búsqueda (por ejemplo, un título con su año), acepta prefijos
+  cortos y ordena por relevancia. Ya no muestra resultados sin relación.
+- **Buscar por extensión**: escribir `rar`, `mkv` o `mp4` ordena primero esos
+  archivos.
+- **Subida de partes en paralelo** (2 a la vez) para acelerar archivos grandes.
 
 ## Lo más destacado
 

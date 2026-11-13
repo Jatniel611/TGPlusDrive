@@ -48,24 +48,64 @@ export function searchTokens(value: string): string[] {
     .filter(Boolean)
 }
 
+/** Extensión normalizada del nombre ("pelicula.RAR" -> "rar"). */
+function extensionOf(name: string): string {
+  const dot = name.lastIndexOf('.')
+  return dot > 0 ? name.slice(dot + 1).toLowerCase() : ''
+}
+
 /**
  * Puntúa una coincidencia (menor = mejor) o devuelve -1 si no coincide.
- * Tolera tildes, mayúsculas, puntos/guiones/paréntesis y orden de palabras.
+ *
+ * Reglas, de mejor a peor:
+ * 1. Nombre idéntico (sin tildes/signos/mayúsculas).
+ * 2. El nombre empieza por la consulta.
+ * 3. La consulta es la extensión del archivo (ej. "rar", "mkv").
+ * 4. Algunas palabras del nombre empiezan por la consulta.
+ * 5. La consulta aparece dentro del nombre compacto (solo consultas de 4+).
+ * 6. Coincidencia por mayoría de palabras, tolerando que falte alguna (por
+ *    ejemplo, buscar un título con el año cuando el nombre no lo incluye).
  */
 export function searchScore(name: string, query: string): number {
   const compactQuery = searchCompact(query)
   if (!compactQuery) return -1
   const compactName = searchCompact(name)
+  if (!compactName) return -1
 
   if (compactName === compactQuery) return 0
   if (compactName.startsWith(compactQuery)) return 1
-  if (compactName.includes(compactQuery)) return 2
 
   const nameTokens = searchTokens(name)
-  const queryTokens = searchTokens(query)
+  const queryTokens = searchTokens(query).filter((token) => token.length >= 2)
   if (queryTokens.length === 0) return -1
-  const allTokens = queryTokens.every((token) =>
-    nameTokens.some((nameToken) => nameToken.includes(token))
-  )
-  return allTokens ? 3 : -1
+
+  // Extensión exacta: buscar "rar" o "mkv" ordena esos archivos primero.
+  if (queryTokens.length === 1 && extensionOf(name) === queryTokens[0]) return 2
+
+  // Una sola palabra: solo cuenta si alguna palabra del nombre empieza por ella.
+  if (queryTokens.length === 1) {
+    const token = queryTokens[0]
+    if (nameTokens.some((nameToken) => nameToken.startsWith(token))) return 3
+    if (compactQuery.length >= 4 && compactName.includes(compactQuery)) return 4
+    return -1
+  }
+
+  // Varias palabras: mayoría clara, comparando solo prefijos en la dirección
+  // correcta (la consulta empieza la palabra del nombre).
+  let matched = 0
+  let exact = 0
+  for (const token of queryTokens) {
+    if (nameTokens.some((nameToken) => nameToken === token)) {
+      matched += 1
+      exact += 1
+    } else if (nameTokens.some((nameToken) => nameToken.startsWith(token))) {
+      matched += 1
+    }
+  }
+
+  if (matched === 0) return -1
+  if (matched / queryTokens.length < 0.6) return -1
+
+  const missing = queryTokens.length - matched
+  return 5 + missing * 2 - exact * 0.25
 }
