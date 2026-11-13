@@ -1290,75 +1290,121 @@ async function uploadPaths(
           }
           saveUploadManifest(manifest)
 
+          const control: { isCanceled?: boolean } = {}
+          uploadControls.set(progressId, control)
           const isCancelled = (): boolean =>
+            Boolean(control.isCanceled) ||
             cancelledUploads.has(progressId) ||
             (batchId ? cancelledUploadBatches.has(batchId) : false) ||
             Boolean(options.shouldCancel?.())
+
           let completedBytes = manifest.parts.reduce((sum, part) => sum + part.size, 0)
           let nextIndex = manifest.parts.reduce((max, part) => Math.max(max, part.index), -1) + 1
 
-          const firstGap = (): number => {
-            const ordered = [...manifest.parts].sort((a, b) => a.offset - b.offset)
-            let cursor = 0
-            for (const part of ordered) {
-              if (part.offset > cursor) break
-              const end = part.offset + part.size
-              if (end > cursor) cursor = end
-            }
-            return Math.min(cursor, size)
-          }
-
-          try {
+          // Planificar los huecos pendientes (soporta reanudación).
+          const planned: Array<{ offset: number; length: number; index: number }> = []
+          {
+            const simulated = manifest.parts.map((part) => ({
+              offset: part.offset,
+              size: part.size
+            }))
             for (;;) {
-              if (isCancelled()) throw new Error('Cancelado')
-              const offset = firstGap()
+              let cursor = 0
+              for (const part of [...simulated].sort((a, b) => a.offset - b.offset)) {
+                if (part.offset > cursor) break
+                const end = part.offset + part.size
+                if (end > cursor) cursor = end
+              }
+              const offset = Math.min(cursor, size)
               if (offset >= size) break
-              const nextCovered = [...manifest.parts]
+              const nextCovered = simulated
                 .filter((part) => part.offset > offset)
                 .sort((a, b) => a.offset - b.offset)[0]?.offset
               const limit = Math.min(size, nextCovered ?? size)
               const length = Math.min(partSize, limit - offset)
-              const index = nextIndex
+              planned.push({ offset, length, index: nextIndex })
+              simulated.push({ offset, size: length })
               nextIndex += 1
-              const partDir = join(dir, nodeId)
-              mkdirSync(partDir, { recursive: true })
-              const chunkPath = join(partDir, partFileName(name, offset))
-              await writePart(filePath, chunkPath, offset, length)
-              const caption = `TGPLUSDRIVE|${nodeId}|${name}|PART|${index}|${totalParts}|${offset}|${length}`
-              const base = completedBytes
-              const partProgress = ((progress: number) => {
-                if (isCancelled()) {
-                  partProgress.isCanceled = true
-                  return
-                }
-                progressFn((base + progress * length) / size)
-              }) as ((progress: number) => void) & { isCanceled?: boolean }
-              uploadControls.set(progressId, partProgress)
-              const message = await uploadToSavedWithRetry(
-                session.client,
-                chunkPath,
-                caption,
-                partProgress,
-                isCancelled
-              )
-              if (isCancelled()) throw new Error('Cancelado')
-              try {
-                rmSync(chunkPath, { force: true })
-                rmSync(partDir, { recursive: true, force: true })
-              } catch {
-                /* ignore */
-              }
-              manifest.parts.push({
-                messageId: message.id,
-                fileId: message.document?.id?.toString(),
-                size: length,
-                offset,
-                index
-              })
-              manifest.parts.sort((a, b) => a.offset - b.offset)
-              completedBytes += length
-              saveUploadManifest(manifest)
             }
+          }
+
+          // Subir varias partes a la vez acelera los archivos grandes. Cada parte
+          // ya usa 16 conexiones internas, así que 2 en paralelo es el equilibrio.
+          const partConcurrency = Math.max(
+            1,
+            Math.min(
+              Number(process.env['TGPLUSDRIVE_PART_CONCURRENCY']) || 2,
+              Math.max(1, planned.length)
+            )
+          )
+          const bytesByPart = new Map<number, number>()
+          const reportProgress = (): void => {
+            if (isCancelled()) return
+            let done = completedBytes
+            for (const task of planned) done += bytesByPart.get(task.index) ?? 0
+            progressFn(Math.min(1, done / size))
+          }
+
+          const uploadPart = async (task: {
+            offset: number
+            length: number
+            index: number
+          }): Promise<void> => {
+            if (isCancelled()) throw new Error('Cancelado')
+            // Carpeta por parte: así una parte puede borrar la suya sin afectar
+            // a otra que se esté subiendo en paralelo.
+            const partDir = join(dir, nodeId, `p${task.index}`)
+            mkdirSync(partDir, { recursive: true })
+            const chunkPath = join(partDir, partFileName(name, task.offset))
+            await writePart(filePath, chunkPath, task.offset, task.length)
+            const caption = `TGPLUSDRIVE|${nodeId}|${name}|PART|${task.index}|${totalParts}|${task.offset}|${task.length}`
+            const partProgress = ((progress: number) => {
+              if (isCancelled()) {
+                partProgress.isCanceled = true
+                return
+              }
+              bytesByPart.set(task.index, progress * task.length)
+              reportProgress()
+            }) as ((progress: number) => void) & { isCanceled?: boolean }
+            const message = await uploadToSavedWithRetry(
+              session.client!,
+              chunkPath,
+              caption,
+              partProgress,
+              isCancelled
+            )
+            if (isCancelled()) throw new Error('Cancelado')
+            try {
+              rmSync(chunkPath, { force: true })
+              rmSync(partDir, { recursive: true, force: true })
+            } catch {
+              /* ignore */
+            }
+            bytesByPart.delete(task.index)
+            completedBytes += task.length
+            manifest.parts.push({
+              messageId: message.id,
+              fileId: message.document?.id?.toString(),
+              size: task.length,
+              offset: task.offset,
+              index: task.index
+            })
+            manifest.parts.sort((a, b) => a.offset - b.offset)
+            saveUploadManifest(manifest)
+            reportProgress()
+          }
+
+          let partCursor = 0
+          const partWorker = async (): Promise<void> => {
+            while (partCursor < planned.length) {
+              if (isCancelled()) throw new Error('Cancelado')
+              const task = planned[partCursor]
+              partCursor += 1
+              await uploadPart(task)
+            }
+          }
+          try {
+            await Promise.all(Array.from({ length: partConcurrency }, partWorker))
 
             if (!manifest.toolMessageId) {
               try {
