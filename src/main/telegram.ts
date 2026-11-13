@@ -660,6 +660,18 @@ function photoSizeValue(photo: { sizes?: unknown[] }): number {
   return max
 }
 
+/**
+ * Texto de la descripción que merece la pena indexar para buscar. Descarta los
+ * captions internos de la app (`TGPLUSDRIVE|...`), el índice y la herramienta.
+ */
+function searchableCaption(raw: string): string | undefined {
+  const text = (raw ?? '').trim()
+  if (!text) return undefined
+  if (text.startsWith('TGPLUSDRIVE')) return undefined
+  if (text.startsWith(INDEX_TOKEN)) return undefined
+  return text.slice(0, 500)
+}
+
 export async function scanSavedMessages(
   client: TelegramClient,
   store: DriveStore,
@@ -685,6 +697,7 @@ export async function scanSavedMessages(
     size: number
     mime: string
     createdAt?: number
+    caption?: string
     storage: {
       provider: 'telegram'
       messageId: number
@@ -701,6 +714,7 @@ export async function scanSavedMessages(
       totalParts: number
       totalSize: number
       createdAt?: number
+      caption?: string
       parts: Array<{ messageId: number; fileId?: string; size: number; offset: number; index: number }>
     }
   >()
@@ -749,6 +763,7 @@ export async function scanSavedMessages(
             totalParts: Number(partMatch[4]),
             totalSize: 0,
             createdAt: message.date ? message.date * 1000 : undefined,
+            caption: searchableCaption(caption),
             parts: []
           }
           group.parts.push({
@@ -771,6 +786,7 @@ export async function scanSavedMessages(
           size,
           mime,
           createdAt: message.date ? message.date * 1000 : undefined,
+          caption: searchableCaption(caption),
           storage: {
             provider: 'telegram',
             messageId: message.id,
@@ -800,6 +816,7 @@ export async function scanSavedMessages(
       size: totalSize,
       mime: group.mime,
       createdAt: group.createdAt,
+      caption: group.caption,
       storage: {
         provider: 'telegram',
         messageId: parts[0].messageId,
@@ -852,6 +869,42 @@ export async function backfillNodeDates(
     }
   }
   return store.applyMessageDates(dates)
+}
+
+/**
+ * Descarga las descripciones de los mensajes y las guarda en la VFS para que el
+ * buscador pueda encontrar archivos cuyo nombre real es un hash y cuyo título
+ * está en la descripción (editada desde Telegram).
+ */
+export async function backfillNodeCaptions(
+  client: TelegramClient,
+  store: DriveStore,
+  onProgress?: (done: number, total: number) => void
+): Promise<number> {
+  const pending = store.db.nodes.filter(
+    (node) => node.kind === 'file' && !node.trashed && node.storage?.messageId && !node.caption
+  )
+  if (pending.length === 0) return 0
+
+  const captions = new Map<number, string>()
+  const ids = pending.map((node) => node.storage!.messageId as number)
+  for (let i = 0; i < ids.length; i += 100) {
+    const slice = ids.slice(i, i + 100)
+    try {
+      const messages = await client.getMessages('me', { ids: slice })
+      for (const message of messages) {
+        if (!message) continue
+        const text = searchableCaption(message.message ?? '')
+        if (text) captions.set(message.id, text)
+      }
+    } catch {
+      /* ignorar errores de lote; se reintentará en el próximo inicio */
+    }
+    onProgress?.(Math.min(ids.length, i + slice.length), ids.length)
+  }
+
+  if (captions.size === 0) return 0
+  return store.applyCaptions(captions)
 }
 
 /**
@@ -958,13 +1011,25 @@ export async function pullIndex(client: TelegramClient, store: DriveStore): Prom
   const remoteNewer = (remote.revision ?? 0) > store.db.revision
   if (!localEmpty && !remoteNewer) return false
 
+  // El índice remoto no guarda las descripciones de Telegram: conservarlas si
+  // el nodo local ya las tenía, para no perder la búsqueda por título.
+  const localCaptions = new Map<string, string>()
+  for (const node of store.db.nodes) {
+    if (node.caption) localCaptions.set(node.id, node.caption)
+  }
+  const withCaptions = (nodes: VfsDb['nodes']): VfsDb['nodes'] =>
+    nodes.map((node) => {
+      const caption = node.caption ?? localCaptions.get(node.id)
+      return caption && caption !== node.caption ? { ...node, caption } : node
+    })
+
   if (localEmpty) {
-    store.replaceFromRemote(remote)
+    store.replaceFromRemote({ ...remote, nodes: withCaptions(remote.nodes ?? []) })
   } else {
     const merged = new Map<string, VfsDb['nodes'][number]>()
     for (const node of remote.nodes ?? []) merged.set(node.id, node)
     for (const node of store.db.nodes) merged.set(node.id, node)
-    store.replaceFromRemote({ ...remote, nodes: [...merged.values()] })
+    store.replaceFromRemote({ ...remote, nodes: withCaptions([...merged.values()]) })
   }
   store.setIndex(latest.id)
   return true

@@ -73,6 +73,7 @@ import {
 } from './mediaServer'
 import { playWithMpv, resolveMpv } from './mpvPlayer'
 import {
+  backfillNodeCaptions,
   backfillNodeDates,
   cancelLogin,
   connectTelegram,
@@ -995,16 +996,29 @@ async function activateProfile(id: string): Promise<DriveState> {
     .catch((err) => console.error('[TGPlusDrive] Error restaurando índice:', err))
     .finally(() => {
       if (active?.profile.id === profile.id) startBackupForActive()
-    })
 
-  backfillNodeDates(client, store)
-    .then((changed) => {
-      if (changed > 0) {
-        emitChanged()
-        scheduleIndexSync()
-      }
+      backfillNodeDates(client, store)
+        .then((changed) => {
+          if (changed > 0) {
+            emitChanged()
+            scheduleIndexSync()
+          }
+        })
+        .catch((err) => console.error('[TGPlusDrive] Error actualizando fechas:', err))
+
+      // Descripciones de Telegram para buscar por el título editado aunque el
+      // nombre del archivo sea un hash. Va DESPUÉS de pullIndex: si corriera en
+      // paralelo, la restauración del índice reemplazaría los nodos y se
+      // perderían los captions recién guardados.
+      backfillNodeCaptions(client, store)
+        .then((changed) => {
+          if (changed > 0) {
+            emitChanged()
+            scheduleIndexSync()
+          }
+        })
+        .catch((err) => console.error('[TGPlusDrive] Error actualizando descripciones:', err))
     })
-    .catch((err) => console.error('[TGPlusDrive] Error actualizando fechas:', err))
 
   return { profile, db: store.db }
 }
@@ -2454,6 +2468,17 @@ function registerIpc(): void {
   })
 
   ipcMain.handle('drive:state', () => driveState())
+
+  ipcMain.handle('drive:refreshCaptions', async () => {
+    const session = requireActive()
+    if (!session.client) throw new Error('Cliente de Telegram no conectado')
+    const before = session.store.db.nodes.filter((node) => node.caption).length
+    const changed = await backfillNodeCaptions(session.client, session.store)
+    emitChanged()
+    if (changed > 0) scheduleIndexSync()
+    const after = session.store.db.nodes.filter((node) => node.caption).length
+    return { before, changed, after }
+  })
 
   ipcMain.handle('drive:cacheStats', () => {
     const session = requireActive()

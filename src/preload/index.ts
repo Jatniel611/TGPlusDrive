@@ -84,6 +84,7 @@ const api: TgApi = {
     checkForUpdates: () => ipcRenderer.invoke('app:checkForUpdates'),
     openUrl: (url) => ipcRenderer.invoke('app:openUrl', url),
     version: () => ipcRenderer.invoke('app:version'),
+    refreshCaptions: () => ipcRenderer.invoke('drive:refreshCaptions'),
     autoStart: () => ipcRenderer.invoke('app:autoStart'),
     setAutoStart: (enabled) => ipcRenderer.invoke('app:setAutoStart', enabled)
   },

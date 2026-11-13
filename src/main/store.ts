@@ -25,6 +25,14 @@ function sanitizeName(name: string): string {
   return clean.slice(0, 200) || 'Sin nombre'
 }
 
+/** Quita los prefijos internos y recorta la descripción para buscar. */
+function cleanCaption(raw: string): string {
+  const text = raw.trim()
+  if (!text) return ''
+  if (text.startsWith('TGPLUSDRIVE') || text.startsWith('TGPlusDrive Index')) return ''
+  return text.slice(0, 500)
+}
+
 export class DriveStore {
   db: VfsDb
   private file: string
@@ -176,6 +184,7 @@ export class DriveStore {
       size: number
       mime: string
       createdAt?: number
+      caption?: string
       storage: StorageRef
     }>
   ): number {
@@ -205,6 +214,7 @@ export class DriveStore {
         mime: input.mime,
         createdAt: input.createdAt ?? now,
         updatedAt: input.createdAt ?? now,
+        caption: input.caption,
         starred: false,
         trashed: false,
         storage: input.storage
@@ -380,6 +390,25 @@ export class DriveStore {
       if (node.createdAt !== date) {
         node.createdAt = date
         node.updatedAt = date
+        changed += 1
+      }
+    }
+    if (changed > 0) this.save()
+    return changed
+  }
+
+  /** Guarda la descripción (caption) de Telegram en los nodos indicados. */
+  applyCaptions(captions: Map<number, string>): number {
+    let changed = 0
+    for (const node of this.db.nodes) {
+      const messageId = node.storage?.messageId
+      if (!messageId) continue
+      const raw = captions.get(messageId)
+      if (raw === undefined) continue
+      const caption = cleanCaption(raw)
+      if (!caption) continue
+      if (node.caption !== caption) {
+        node.caption = caption
         changed += 1
       }
     }

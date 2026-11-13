@@ -369,10 +369,21 @@ export function Drive({
   const sessionNodes = useMemo(() => {
     if (query.trim()) {
       const q = query.trim()
+      const scoreOf = (node: VfsNode): number => {
+        const nameScore = searchScore(node.name, q)
+        if (nameScore >= 0) return nameScore
+        // El nombre real puede ser un hash y el título estar en la descripción
+        // editada en Telegram.
+        if (node.caption) {
+          const captionScore = searchScore(node.caption, q)
+          return captionScore >= 0 ? captionScore + 10 : -1
+        }
+        return -1
+      }
       return db.nodes
-        .filter((n) => !n.trashed && searchScore(n.name, q) >= 0)
+        .filter((n) => !n.trashed && scoreOf(n) >= 0)
         .sort((a, b) => {
-          const scoreDiff = searchScore(a.name, q) - searchScore(b.name, q)
+          const scoreDiff = scoreOf(a) - scoreOf(b)
           return scoreDiff !== 0 ? scoreDiff : compareNodes(a, b, sortBy, sortDir)
         })
     }

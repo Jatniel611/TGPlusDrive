@@ -43,6 +43,8 @@ export interface VfsNode {
   backup?: boolean
   /** Hash de la carpeta local para reconocer el respaldo aunque se pierda backup.json. */
   backupToken?: string
+  /** Descripción del mensaje en Telegram (el "caption"), útil para buscar. */
+  caption?: string
   storage?: StorageRef
 }
 

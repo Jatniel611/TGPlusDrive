@@ -96,6 +96,8 @@ export interface TgApi {
     /** Abre la página del release o la descarga en el navegador. */
     openUrl(url: 'release' | 'download'): Promise<boolean>
     version(): Promise<string>
+    /** Vuelve a leer las descripciones de Telegram para el buscador. */
+    refreshCaptions(): Promise<{ before: number; changed: number; after: number }>
     /** Inicio automático con Windows. */
     autoStart(): Promise<{ supported: boolean; enabled: boolean }>
     setAutoStart(
